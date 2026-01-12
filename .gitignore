@@ -11,6 +11,6 @@ Job Cards/
 *.jpg
 *.png
 *.sh
-*.md
 scripts/
+!README.md
 templates/
