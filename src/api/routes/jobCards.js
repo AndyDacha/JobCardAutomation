@@ -60,20 +60,40 @@ async function processWebhookAsync(webhookData) {
   try {
     logger.info('Processing webhook:', JSON.stringify(webhookData, null, 2));
     
-    // Extract job ID and status ID from webhook
-    const jobId = webhookData?.Job?.ID || webhookData?.jobId || webhookData?.JobId;
-    const statusId = webhookData?.Status?.ID || webhookData?.statusId || webhookData?.StatusId;
+    // Extract job ID and status ID from webhook (handle multiple Simpro webhook formats)
+    const jobId = webhookData?.Job?.ID || 
+                  webhookData?.jobId || 
+                  webhookData?.JobId ||
+                  webhookData?.job?.id ||
+                  webhookData?.reference?.jobID ||
+                  webhookData?.reference?.jobId ||
+                  webhookData?.reference?.JobID;
+    
+    const statusId = webhookData?.Status?.ID || 
+                     webhookData?.statusId || 
+                     webhookData?.StatusId ||
+                     webhookData?.status?.id ||
+                     webhookData?.Status?.Id ||
+                     webhookData?.newStatus?.ID ||
+                     webhookData?.newStatus?.Id;
+    
+    logger.info(`Extracted - Job ID: ${jobId}, Status ID: ${statusId}`);
     
     if (!jobId) {
-      logger.warn('Webhook missing job ID');
+      logger.warn('Webhook missing job ID. Full webhook data:', JSON.stringify(webhookData, null, 2));
       return;
     }
     
     // Check target status (ID 38: "Job - Completed & Checked")
     const targetStatusId = 38;
-    if (statusId !== targetStatusId) {
+    if (statusId && statusId !== targetStatusId) {
       logger.info(`Job ${jobId} status ${statusId} is not target status ${targetStatusId}, skipping`);
       return;
+    }
+    
+    // If status ID is missing but we have a job ID, proceed anyway (status might be in a different field)
+    if (!statusId) {
+      logger.warn(`Job ${jobId} webhook missing status ID, but proceeding to generate job card`);
     }
     
     // Idempotency check
