@@ -142,8 +142,20 @@ async function generateAndUploadJobCard(jobId) {
     // Fetch job data
     const jobCardData = await getJobCardData(jobId);
     
+    // Log the data structure being passed to PDF generator
+    logger.info(`[DEBUG] Job card data structure for job ${jobId}:`, JSON.stringify({
+      job: jobCardData.job,
+      customer: jobCardData.customer,
+      engineers: jobCardData.engineers,
+      labourCount: jobCardData.labour?.length || 0,
+      materialsCount: jobCardData.materials?.length || 0,
+      hasWorkSummary: !!jobCardData.workSummary,
+      photosCount: 0 // Will be added below
+    }, null, 2));
+    
     // Fetch photos
     const photos = await getJobPhotos(jobId);
+    logger.info(`[DEBUG] Photos fetched: ${photos?.length || 0} photos`);
     
     // Generate PDF
     const pdfBuffer = await generatePDF(jobCardData, photos);
