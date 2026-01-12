@@ -171,26 +171,36 @@ export async function getJobCardData(jobId) {
     
     // Fetch job sections (labour, materials, etc.)
     // Try multiple possible endpoints for sections
-    let sections = null;
+    let sections = [];
     await delay(500);
     
-    // Try /sections endpoint first
-    try {
-      const sectionsUrl = `/companies/${companyId}/jobs/${jobId}/sections`;
-      sections = await fetchWithRetry(sectionsUrl);
-    } catch (error) {
-      logger.warn(`Sections endpoint /sections not available, trying alternatives...`);
-      
-      // Try /costcenters endpoint
+    // Check if job object itself has sections/costCenters
+    if (job.Sections && Array.isArray(job.Sections) && job.Sections.length > 0) {
+      logger.info(`Using sections from job object`);
+      sections = job.Sections;
+    } else if (job.CostCenters && Array.isArray(job.CostCenters) && job.CostCenters.length > 0) {
+      logger.info(`Using cost centers from job object`);
+      sections = [{ costCenters: job.CostCenters }];
+    } else {
+      // Try /sections endpoint first
       try {
-        const costCentersUrl = `/companies/${companyId}/jobs/${jobId}/costcenters`;
-        const costCenters = await fetchWithRetry(costCentersUrl);
-        // Wrap in sections format if needed
-        sections = Array.isArray(costCenters) ? costCenters : [{ costCenters: costCenters }];
-      } catch (error2) {
-        logger.warn(`Cost centers endpoint also failed: ${error2.message}`);
-        // Use empty sections - job data might have enough info
-        sections = [];
+        const sectionsUrl = `/companies/${companyId}/jobs/${jobId}/sections`;
+        const fetchedSections = await fetchWithRetry(sectionsUrl);
+        sections = Array.isArray(fetchedSections) ? fetchedSections : (fetchedSections ? [fetchedSections] : []);
+      } catch (error) {
+        logger.warn(`Sections endpoint /sections not available: ${error.message}`);
+        
+        // Try /costcenters endpoint
+        try {
+          const costCentersUrl = `/companies/${companyId}/jobs/${jobId}/costcenters`;
+          const costCenters = await fetchWithRetry(costCentersUrl);
+          // Wrap in sections format if needed
+          sections = Array.isArray(costCenters) ? costCenters.map(cc => ({ costCenters: [cc] })) : [{ costCenters: Array.isArray(costCenters) ? costCenters : [costCenters] }];
+        } catch (error2) {
+          logger.warn(`Cost centers endpoint also failed: ${error2.message}`);
+          // Use empty sections - job data might have enough info
+          sections = [];
+        }
       }
     }
     
