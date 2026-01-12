@@ -44,43 +44,7 @@ function removeMarkdown(text) {
     .trim();
 }
 
-function formatDate(dateString) {
-  if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return dateString;
-  }
-}
-
-function calculateTotalHours(labour) {
-  if (!labour || labour.length === 0) return '0.00';
-  const total = labour.reduce((sum, l) => sum + parseFloat(l.hours || 0), 0);
-  return total.toFixed(2);
-}
-
 export function generateHTML(validatedData) {
-  // Get completion date (use current date if not available)
-  const completedDate = validatedData.job.status === 'Job - Completed & Checked' 
-    ? formatDate(new Date().toISOString())
-    : formatDate(new Date().toISOString());
-  
-  // Get date issued (use AcceptSLA or current date)
-  const dateIssued = validatedData.job.acceptSLA 
-    ? formatDate(validatedData.job.acceptSLA)
-    : formatDate(new Date().toISOString());
-  
-  // Calculate total hours
-  const totalHours = calculateTotalHours(validatedData.labour);
-  
-  // Get site name and address from job data
-  const siteName = validatedData.job.locationDetails || validatedData.customer.name || 'N/A';
-  const address = validatedData.customer.companyName || validatedData.customer.name || 'N/A';
-  
-  // Format job name (use work order type or job number)
-  const jobName = validatedData.job.workOrderType || validatedData.job.jobNumber || 'N/A';
-  
   const html = `
 <!DOCTYPE html>
 <html>
@@ -95,224 +59,148 @@ export function generateHTML(validatedData) {
       padding: 20px;
       line-height: 1.4;
     }
-    .company-header {
+    .header {
       text-align: center;
-      margin-bottom: 15px;
-      font-size: 9pt;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
     }
-    .company-header .company-name {
-      font-weight: bold;
-      font-size: 11pt;
-      margin-bottom: 3px;
-    }
-    .company-header .company-details {
-      line-height: 1.3;
-    }
-    .report-title {
-      text-align: center;
-      font-size: 14pt;
-      font-weight: bold;
-      margin: 15px 0;
-      text-decoration: underline;
-    }
-    .job-header-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 15px;
-    }
-    .job-header-table td {
-      padding: 4px 8px;
-      border: 1px solid #000;
-      font-size: 9pt;
-    }
-    .job-header-table .label {
-      font-weight: bold;
-      width: 20%;
-      background-color: #f0f0f0;
-    }
-    .outcome-section {
-      margin: 15px 0;
-      padding: 10px;
-      border: 1px solid #000;
-      background-color: #f9f9f9;
-    }
-    .outcome-section .outcome-title {
-      font-weight: bold;
+    .header h1 {
+      font-size: 18pt;
       margin-bottom: 5px;
     }
-    .info-grid {
+    .summary-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin: 15px 0;
+      margin-bottom: 20px;
     }
-    .info-item {
+    .summary-item {
       padding: 5px;
+      border-bottom: 1px solid #ddd;
     }
-    .info-item .label {
-      font-weight: bold;
+    .summary-item strong {
       display: inline-block;
-      min-width: 80px;
+      width: 120px;
     }
     .section {
-      margin: 20px 0;
+      margin-bottom: 20px;
       page-break-inside: avoid;
     }
     .section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 5px;
+    }
+    .section-subtitle {
       font-size: 11pt;
       font-weight: bold;
-      margin-bottom: 8px;
-      text-decoration: underline;
-    }
-    .initial-request-content {
-      margin-top: 8px;
-      line-height: 1.5;
-    }
-    .initial-request-item {
-      margin: 3px 0;
+      margin-top: 10px;
+      margin-bottom: 5px;
     }
     .work-summary-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
+      margin-top: 10px;
     }
     .work-summary-table th {
       background-color: #f0f0f0;
-      padding: 6px;
+      padding: 8px;
       text-align: left;
       border: 1px solid #000;
       font-weight: bold;
-      width: 25%;
-      vertical-align: top;
+      width: 30%;
     }
     .work-summary-table td {
-      padding: 6px;
+      padding: 8px;
       border: 1px solid #000;
       vertical-align: top;
     }
-    .labour-table {
+    .labour-table, .materials-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
+      margin-top: 10px;
     }
-    .labour-table th {
+    .labour-table th, .materials-table th {
       background-color: #f0f0f0;
-      padding: 6px;
+      padding: 8px;
       text-align: left;
       border: 1px solid #000;
       font-weight: bold;
     }
-    .labour-table td {
-      padding: 6px;
-      border: 1px solid #000;
-      text-align: left;
-    }
-    .labour-table .total-row {
-      font-weight: bold;
-      background-color: #f0f0f0;
-    }
-    .photos-section {
-      margin-top: 15px;
-    }
-    .photo-list {
-      margin-top: 8px;
-      line-height: 1.8;
-    }
-    .completion-statement {
-      margin-top: 20px;
-      padding: 10px;
+    .labour-table td, .materials-table td {
+      padding: 8px;
       border: 1px solid #000;
     }
-    .completion-statement-title {
-      font-weight: bold;
-      margin-bottom: 5px;
+    .photos-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .photo-item {
+      text-align: center;
+    }
+    .photo-item img {
+      max-width: 100%;
+      max-height: 200px;
+      border: 1px solid #000;
+    }
+    .completion-statement-box {
+      margin-top: 30px;
+      padding: 15px;
+      border: 2px solid #000;
+      page-break-inside: avoid;
+    }
+    .completion-statement-text {
+      margin-top: 10px;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
-  <!-- Company Header -->
-  <div class="company-header">
-    <div class="company-name">Dacha SSI</div>
-    <div class="company-details">
-      Unit 19 Headlands Business Park Salisbury Road<br>
-      Tel: 03333 44 55 26<br>
-      Email: office@dacha-uk.com<br>
-      Web: www.dacha-uk.com VAT Reg. No. 947027513
-    </div>
+  <div class="header">
+    <h1>JOB CARD</h1>
   </div>
 
-  <!-- Report Title -->
-  <div class="report-title">ENGINEER COMPLETION REPORT</div>
-
-  <!-- Job Header Table -->
-  <table class="job-header-table">
-    <tr>
-      <td class="label">Job #</td>
-      <td>#${escapeHtml(validatedData.job.id.toString())}</td>
-      <td class="label">Job Number:</td>
-      <td>${escapeHtml(validatedData.job.jobNumber)}</td>
-      <td class="label">Order Number:</td>
-      <td>${escapeHtml(validatedData.job.orderNo || 'N/A')}</td>
-    </tr>
-    <tr>
-      <td class="label">Job Name:</td>
-      <td>${escapeHtml(jobName)}</td>
-      <td class="label">Status:</td>
-      <td>${escapeHtml(validatedData.job.status || 'N/A')}</td>
-      <td class="label">Date Issued:</td>
-      <td>${escapeHtml(dateIssued)}</td>
-    </tr>
-    <tr>
-      <td class="label">Completed:</td>
-      <td colspan="5">${escapeHtml(completedDate)}</td>
-    </tr>
-  </table>
-
-  <!-- OUTCOME Section -->
-  <div class="outcome-section">
-    <div class="outcome-title">OUTCOME:</div>
-    <div>Job completed successfully on ${escapeHtml(completedDate)}. Status: ${escapeHtml(validatedData.job.status || 'Job - Completed & Checked')}. I confirm the above works were completed in accordance with relevant standards and the system was left operational.</div>
+  <div class="summary-grid">
+    <div class="summary-item"><strong>Job Number:</strong> ${escapeHtml(validatedData.job.jobNumber)}</div>
+    ${validatedData.job.orderNo ? `<div class="summary-item"><strong>Order Number:</strong> ${escapeHtml(validatedData.job.orderNo)}</div>` : ''}
+    <div class="summary-item"><strong>Customer:</strong> ${escapeHtml(validatedData.customer.name || 'N/A')}</div>
+    <div class="summary-item"><strong>Engineer:</strong> ${escapeHtml(validatedData.engineers.join(', '))}</div>
+    <div class="summary-item"><strong>Status:</strong> ${escapeHtml(validatedData.job.status)}</div>
+    <div class="summary-item"><strong>Priority:</strong> ${escapeHtml(validatedData.job.priority)}</div>
+    ${validatedData.job.workOrderType ? `<div class="summary-item"><strong>Work Order Type:</strong> ${escapeHtml(validatedData.job.workOrderType)}</div>` : ''}
+    ${validatedData.job.problemType ? `<div class="summary-item"><strong>Problem Type:</strong> ${escapeHtml(validatedData.job.problemType)}</div>` : ''}
+    ${validatedData.job.floorLevel ? `<div class="summary-item"><strong>Floor Level:</strong> ${escapeHtml(validatedData.job.floorLevel)}</div>` : ''}
+    ${validatedData.job.locationDetails ? `<div class="summary-item"><strong>Location Details:</strong> ${escapeHtml(validatedData.job.locationDetails)}</div>` : ''}
+    ${validatedData.job.acceptSLA ? `<div class="summary-item"><strong>Accept SLA:</strong> ${escapeHtml(validatedData.job.acceptSLA)}</div>` : ''}
+    ${validatedData.job.responseSLA ? `<div class="summary-item"><strong>Response SLA (Hours):</strong> ${escapeHtml(validatedData.job.responseSLA)}</div>` : ''}
+    ${validatedData.job.fixSLA ? `<div class="summary-item"><strong>Fix SLA (Hours):</strong> ${escapeHtml(validatedData.job.fixSLA)}</div>` : ''}
+    ${validatedData.job.nte ? `<div class="summary-item"><strong>Not To Exceed (NTE):</strong> £${escapeHtml(validatedData.job.nte)}</div>` : ''}
   </div>
 
-  <!-- Site/Address/Customer/Engineer Info -->
-  <div class="info-grid">
-    <div class="info-item"><span class="label">Site:</span> ${escapeHtml(siteName)}</div>
-    <div class="info-item"><span class="label">Address:</span> ${escapeHtml(address)}</div>
-    <div class="info-item"><span class="label">Customer:</span> ${escapeHtml(validatedData.customer.name || 'N/A')}</div>
-    <div class="info-item"><span class="label">Engineer(s):</span> ${escapeHtml(validatedData.engineers.join(', '))}</div>
-  </div>
-
-  <!-- INITIAL REQUEST Section -->
   <div class="section">
-    <div class="section-title">INITIAL REQUEST</div>
-    <div class="initial-request-content">
-      ${validatedData.job.workOrderType ? `<div class="initial-request-item"><strong>Work Order Type:</strong> ${escapeHtml(validatedData.job.workOrderType)}</div>` : ''}
-      ${validatedData.job.problemType ? `<div class="initial-request-item"><strong>Problem Type:</strong> ${escapeHtml(validatedData.job.problemType)}${validatedData.job.problemType === 'Other Issue (Non-Handyman)- Please Specify' ? '' : ''}</div>` : ''}
-      ${validatedData.job.floorLevel ? `<div class="initial-request-item"><strong>Floor Level:</strong> ${escapeHtml(validatedData.job.floorLevel)}</div>` : ''}
-      ${validatedData.job.locationDetails ? `<div class="initial-request-item"><strong>Location Details:</strong> ${escapeHtml(validatedData.job.locationDetails)}</div>` : ''}
-      ${validatedData.job.acceptSLA ? `<div class="initial-request-item"><strong>Accept SLA:</strong> ${escapeHtml(validatedData.job.acceptSLA)}</div>` : ''}
-      ${validatedData.job.responseSLA ? `<div class="initial-request-item"><strong>Response SLA (Hours):</strong> ${escapeHtml(validatedData.job.responseSLA)}</div>` : ''}
-      ${validatedData.job.fixSLA ? `<div class="initial-request-item"><strong>Fix SLA (Hours):</strong> ${escapeHtml(validatedData.job.fixSLA)}</div>` : ''}
-      <div class="initial-request-item"><strong>Description:</strong> ${escapeHtml(stripHTML(validatedData.job.description).trim())}</div>
-      ${validatedData.job.nte ? `<div class="initial-request-item"><strong>Not To Exceed (NTE):</strong> £${escapeHtml(validatedData.job.nte)}</div>` : ''}
-    </div>
+    <h2 class="section-title">INITIAL REQUEST</h2>
+    <p>${escapeHtml(stripHTML(validatedData.job.description).trim())}</p>
   </div>
 
   ${validatedData.workSummary ? `
-  <!-- WORK SUMMARY Section -->
   <div class="section">
-    <div class="section-title">WORK SUMMARY</div>
+    <h2 class="section-title">WORK SUMMARY</h2>
     <table class="work-summary-table">
       <tr>
-        <th>Diagnostics:</th>
+        <th>Diagnostics</th>
         <td>${escapeHtml(removeMarkdown(validatedData.workSummary.diagnostics))}</td>
       </tr>
       <tr>
-        <th>Actions Taken:</th>
+        <th>Actions Taken</th>
         <td>${escapeHtml(removeMarkdown(validatedData.workSummary.actionsTaken))}</td>
       </tr>
       <tr>
-        <th>Results:</th>
+        <th>Results</th>
         <td>${escapeHtml(removeMarkdown(validatedData.workSummary.results))}</td>
       </tr>
     </table>
@@ -320,16 +208,15 @@ export function generateHTML(validatedData) {
   ` : ''}
 
   ${validatedData.labour && validatedData.labour.length > 0 ? `
-  <!-- LABOUR Section -->
   <div class="section">
-    <div class="section-title">LABOUR</div>
+    <h2 class="section-title">LABOUR</h2>
     <table class="labour-table">
       <thead>
         <tr>
           <th>Date</th>
           <th>Engineer</th>
-          <th>Start</th>
-          <th>Finish</th>
+          <th>Start Time</th>
+          <th>End Time</th>
           <th>Hours</th>
         </tr>
       </thead>
@@ -343,20 +230,15 @@ export function generateHTML(validatedData) {
             <td>${escapeHtml(l.hours)}</td>
           </tr>
         `).join('')}
-        <tr class="total-row">
-          <td colspan="4" style="text-align: right; padding-right: 10px;">TOTAL HOURS:</td>
-          <td>${escapeHtml(totalHours)}</td>
-        </tr>
       </tbody>
     </table>
   </div>
   ` : ''}
 
   ${validatedData.materials && validatedData.materials.length > 0 ? `
-  <!-- MATERIALS Section -->
   <div class="section">
-    <div class="section-title">MATERIALS</div>
-    <table class="labour-table">
+    <h2 class="section-title">MATERIALS</h2>
+    <table class="materials-table">
       <thead>
         <tr>
           <th>Description</th>
@@ -382,23 +264,25 @@ export function generateHTML(validatedData) {
   ` : ''}
 
   ${validatedData.photos && validatedData.photos.length > 0 ? `
-  <!-- PHOTOGRAPHIC EVIDENCE Section -->
-  <div class="section photos-section">
-    <div class="section-title">PHOTOGRAPHIC EVIDENCE</div>
-    <div class="photo-list">
+  <div class="section">
+    <h2 class="section-title">PHOTOS</h2>
+    <div class="photos-grid">
       ${validatedData.photos.map(photo => `
-        <div>${escapeHtml(photo.filename || photo.description || 'Photo')}</div>
+        <div class="photo-item">
+          <img src="data:image/jpeg;base64,${photo.base64}" alt="Photo" />
+          <p>${escapeHtml(photo.description || '')}</p>
+        </div>
       `).join('')}
     </div>
   </div>
   ` : ''}
 
   <!-- Completion & Evidence Statement -->
-  <div class="section completion-statement">
-    <div class="completion-statement-title">Completion & Evidence Statement</div>
-    <div>
+  <div class="section completion-statement-box">
+    <h2 class="section-title">COMPLETION & EVIDENCE STATEMENT</h2>
+    <p class="completion-statement-text">
       The works described above were completed in accordance with applicable industry standards and manufacturer guidelines, and the system was left in a safe and operational condition at the time of departure. Where a customer or site representative was unavailable to sign at completion, alternative evidence of completion has been recorded in line with company procedures.
-    </div>
+    </p>
   </div>
 </body>
 </html>
