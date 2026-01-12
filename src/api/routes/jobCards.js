@@ -88,6 +88,13 @@ async function processWebhookAsync(webhookData) {
       return;
     }
     
+    // TEMPORARY: Only process job 53582 for testing
+    const TEST_JOB_ID = 53582;
+    if (jobId !== TEST_JOB_ID) {
+      logger.info(`Job ${jobId} is not test job ${TEST_JOB_ID}, skipping (testing mode)`);
+      return;
+    }
+    
     // Check target status (ID 38: "Job - Completed & Checked")
     const targetStatusId = 38;
     
