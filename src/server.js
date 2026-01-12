@@ -16,6 +16,12 @@ app.get('/health', (req, res) => {
 // Job cards routes
 app.use('/api/job-cards', jobCardsRouter);
 
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path}`);
+  next();
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', err);

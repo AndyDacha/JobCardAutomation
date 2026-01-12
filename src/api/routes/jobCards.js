@@ -13,8 +13,11 @@ const processedWebhooks = new Set();
 // Webhook endpoint for Simpro job status changes
 router.post('/webhook', async (req, res) => {
   try {
+    logger.info('Webhook received - headers:', JSON.stringify(req.headers, null, 2));
+    logger.info('Webhook received - body:', JSON.stringify(req.body, null, 2));
+    
     // Acknowledge immediately
-    res.status(200).json({ received: true });
+    res.status(200).json({ received: true, message: 'Webhook received and processing' });
     
     // Process asynchronously
     processWebhookAsync(req.body).catch(error => {
