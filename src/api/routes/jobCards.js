@@ -90,14 +90,16 @@ async function processWebhookAsync(webhookData) {
     
     // Check target status (ID 38: "Job - Completed & Checked")
     const targetStatusId = 38;
-    if (statusId && statusId !== targetStatusId) {
-      logger.info(`Job ${jobId} status ${statusId} is not target status ${targetStatusId}, skipping`);
+    
+    // Only process if status ID is exactly 38
+    if (!statusId) {
+      logger.info(`Job ${jobId} webhook missing status ID, skipping (only process status 38)`);
       return;
     }
     
-    // If status ID is missing but we have a job ID, proceed anyway (status might be in a different field)
-    if (!statusId) {
-      logger.warn(`Job ${jobId} webhook missing status ID, but proceeding to generate job card`);
+    if (statusId !== targetStatusId) {
+      logger.info(`Job ${jobId} status ${statusId} is not target status ${targetStatusId}, skipping`);
+      return;
     }
     
     // Idempotency check
