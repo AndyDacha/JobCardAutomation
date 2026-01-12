@@ -4,6 +4,19 @@ import logger from '../../utils/logger.js';
 
 const { baseUrl, apiKey, companyId } = config.simpro;
 
+// Validate configuration
+if (!baseUrl || baseUrl === '') {
+  logger.error('SIMPRO_BASE_URL is not set in environment variables');
+}
+if (!apiKey || apiKey === '') {
+  logger.error('SIMPRO_API_KEY is not set in environment variables');
+}
+if (!companyId || companyId === '') {
+  logger.error('SIMPRO_COMPANY_ID is not set in environment variables');
+}
+
+logger.info(`Simpro config - Base URL: ${baseUrl ? baseUrl.replace(/\/[^\/]*$/, '/***') : 'NOT SET'}, Company ID: ${companyId || 'NOT SET'}`);
+
 const axiosInstance = axios.create({
   baseURL: baseUrl,
   headers: {
