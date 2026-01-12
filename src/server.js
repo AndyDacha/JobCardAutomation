@@ -1,0 +1,28 @@
+import express from 'express';
+import config from './config/index.js';
+import logger from './utils/logger.js';
+import jobCardsRouter from './api/routes/jobCards.js';
+
+const app = express();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Job cards routes
+app.use('/api/job-cards', jobCardsRouter);
+
+// Error handling
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+const PORT = config.port;
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
+});

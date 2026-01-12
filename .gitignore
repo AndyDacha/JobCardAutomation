@@ -1,0 +1,16 @@
+node_modules/
+.env
+*.log
+.DS_Store
+*.sqlite
+*.sqlite3
+gmail/
+data/
+Job Cards/
+*.pdf
+*.jpg
+*.png
+*.sh
+*.md
+scripts/
+templates/
