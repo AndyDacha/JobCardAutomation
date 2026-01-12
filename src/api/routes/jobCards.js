@@ -10,14 +10,40 @@ const router = express.Router();
 // Store processed webhook IDs for idempotency (in production, use Redis or database)
 const processedWebhooks = new Set();
 
+// Test endpoint to verify webhook route is accessible
+router.get('/webhook', (req, res) => {
+  logger.info('GET request to webhook endpoint - this confirms the route is accessible');
+  res.json({ 
+    message: 'Webhook endpoint is accessible',
+    method: 'Use POST for actual webhooks',
+    url: '/api/job-cards/webhook'
+  });
+});
+
+// Also accept GET for testing (some webhook systems test with GET first)
+router.get('/test', (req, res) => {
+  logger.info('Test endpoint hit');
+  res.json({ status: 'ok', message: 'Webhook service is running' });
+});
+
 // Webhook endpoint for Simpro job status changes
 router.post('/webhook', async (req, res) => {
   try {
-    logger.info('Webhook received - headers:', JSON.stringify(req.headers, null, 2));
-    logger.info('Webhook received - body:', JSON.stringify(req.body, null, 2));
+    const timestamp = new Date().toISOString();
+    logger.info(`[${timestamp}] ========== WEBHOOK RECEIVED ==========`);
+    logger.info('Webhook method:', req.method);
+    logger.info('Webhook path:', req.path);
+    logger.info('Webhook headers:', JSON.stringify(req.headers, null, 2));
+    logger.info('Webhook body:', JSON.stringify(req.body, null, 2));
+    logger.info('Webhook query:', JSON.stringify(req.query, null, 2));
+    logger.info('==========================================');
     
     // Acknowledge immediately
-    res.status(200).json({ received: true, message: 'Webhook received and processing' });
+    res.status(200).json({ 
+      received: true, 
+      message: 'Webhook received and processing',
+      timestamp: timestamp
+    });
     
     // Process asynchronously
     processWebhookAsync(req.body).catch(error => {
