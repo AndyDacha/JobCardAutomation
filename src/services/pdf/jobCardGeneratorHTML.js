@@ -81,6 +81,14 @@ export function generateHTML(validatedData) {
   // Format job name (use work order type or job number)
   const jobName = validatedData.job.workOrderType || validatedData.job.jobNumber || 'N/A';
   
+  // Generate build ID (local vs Railway)
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY_DEPLOYMENT_ID;
+  const environment = isRailway ? 'RAILWAY' : 'LOCAL';
+  const buildId = process.env.RAILWAY_DEPLOYMENT_ID || 
+                  process.env.RAILWAY_ENVIRONMENT_ID || 
+                  `local-${Date.now()}`;
+  const buildStamp = `${environment}-${buildId.substring(0, 8)}`;
+  
   const html = `
 <!DOCTYPE html>
 <html>
@@ -226,6 +234,16 @@ export function generateHTML(validatedData) {
     .completion-statement-title {
       font-weight: bold;
       margin-bottom: 5px;
+    }
+    .build-stamp {
+      position: fixed;
+      bottom: 5px;
+      right: 5px;
+      font-size: 7pt;
+      color: #999;
+      font-family: Arial, sans-serif;
+      opacity: 0.6;
+      z-index: 1000;
     }
   </style>
 </head>
@@ -400,6 +418,9 @@ export function generateHTML(validatedData) {
       The works described above were completed in accordance with applicable industry standards and manufacturer guidelines, and the system was left in a safe and operational condition at the time of departure. Where a customer or site representative was unavailable to sign at completion, alternative evidence of completion has been recorded in line with company procedures.
     </div>
   </div>
+  
+  <!-- Build ID Stamp -->
+  <div class="build-stamp">${escapeHtml(buildStamp)}</div>
 </body>
 </html>
   `;
