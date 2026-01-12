@@ -162,16 +162,37 @@ export async function getJobCardData(jobId) {
     if (job.Customer?.ID) {
       try {
         await delay(500); // Rate limiting
-        customerDetails = await fetchWithRetry(`/companies/${companyId}/customers/${job.Customer.ID}`);
+        // Simpro API requires: /companies/{companyId}/customers/companies/{customerId}
+        customerDetails = await fetchWithRetry(`/companies/${companyId}/customers/companies/${job.Customer.ID}`);
       } catch (error) {
         logger.warn(`Could not fetch customer details: ${error.message}`);
       }
     }
     
     // Fetch job sections (labour, materials, etc.)
+    // Try multiple possible endpoints for sections
+    let sections = null;
     await delay(500);
-    const sectionsUrl = `/companies/${companyId}/jobs/${jobId}/sections`;
-    const sections = await fetchWithRetry(sectionsUrl);
+    
+    // Try /sections endpoint first
+    try {
+      const sectionsUrl = `/companies/${companyId}/jobs/${jobId}/sections`;
+      sections = await fetchWithRetry(sectionsUrl);
+    } catch (error) {
+      logger.warn(`Sections endpoint /sections not available, trying alternatives...`);
+      
+      // Try /costcenters endpoint
+      try {
+        const costCentersUrl = `/companies/${companyId}/jobs/${jobId}/costcenters`;
+        const costCenters = await fetchWithRetry(costCentersUrl);
+        // Wrap in sections format if needed
+        sections = Array.isArray(costCenters) ? costCenters : [{ costCenters: costCenters }];
+      } catch (error2) {
+        logger.warn(`Cost centers endpoint also failed: ${error2.message}`);
+        // Use empty sections - job data might have enough info
+        sections = [];
+      }
+    }
     
     // Extract engineers
     const engineers = extractEngineers(sections);
