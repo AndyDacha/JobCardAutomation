@@ -32,9 +32,19 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function fetchWithRetry(url, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     try {
+      logger.debug(`API Request: GET ${baseUrl}${url}`);
       const response = await axiosInstance.get(url);
+      logger.debug(`API Response: Status ${response.status} for ${url}`);
       return response.data;
     } catch (error) {
+      if (error.response) {
+        logger.error(`API Error (attempt ${i + 1}/${maxRetries}): ${error.response.status} ${error.response.statusText} for ${baseUrl}${url}`);
+        if (error.response.data) {
+          logger.error(`Error response data: ${JSON.stringify(error.response.data, null, 2)}`);
+        }
+      } else {
+        logger.error(`Network error (attempt ${i + 1}/${maxRetries}): ${error.message} for ${baseUrl}${url}`);
+      }
       if (i === maxRetries - 1) throw error;
       await delay(1000 * (i + 1));
     }
@@ -134,9 +144,13 @@ function extractSingleWorkSummary(sections) {
 export async function getJobCardData(jobId) {
   try {
     logger.info(`Fetching job card data for job ${jobId}`);
+    logger.info(`Using base URL: ${baseUrl}, Company ID: ${companyId}`);
     
     // Fetch job details
     const jobUrl = `/companies/${companyId}/jobs/${jobId}`;
+    const fullUrl = `${baseUrl}${jobUrl}`;
+    logger.info(`Fetching job from: ${fullUrl}`);
+    
     const job = await fetchWithRetry(jobUrl);
     
     if (!job || !job.ID) {
