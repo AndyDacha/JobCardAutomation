@@ -61,15 +61,19 @@ async function processWebhookAsync(webhookData) {
     logger.info('Processing webhook:', JSON.stringify(webhookData, null, 2));
     
     // Extract job ID and status ID from webhook (handle multiple Simpro webhook formats)
-    const jobId = webhookData?.Job?.ID || 
+    // Simpro sends: reference.jobID and reference.statusID for job.status events
+    const jobId = webhookData?.reference?.jobID ||
+                  webhookData?.reference?.jobId ||
+                  webhookData?.reference?.JobID ||
+                  webhookData?.Job?.ID || 
                   webhookData?.jobId || 
                   webhookData?.JobId ||
-                  webhookData?.job?.id ||
-                  webhookData?.reference?.jobID ||
-                  webhookData?.reference?.jobId ||
-                  webhookData?.reference?.JobID;
+                  webhookData?.job?.id;
     
-    const statusId = webhookData?.Status?.ID || 
+    const statusId = webhookData?.reference?.statusID ||
+                     webhookData?.reference?.statusId ||
+                     webhookData?.reference?.StatusID ||
+                     webhookData?.Status?.ID || 
                      webhookData?.statusId || 
                      webhookData?.StatusId ||
                      webhookData?.status?.id ||
