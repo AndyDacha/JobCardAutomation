@@ -1,6 +1,6 @@
 {
   "name": "job-card-automation",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Automated job card generation and upload to Simpro",
   "type": "module",
   "main": "src/server.js",
