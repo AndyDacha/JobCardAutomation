@@ -320,31 +320,31 @@ export function generateHTML(validatedData) {
     </div>
   </div>
 
-  ${validatedData.workSummary ? `
   <!-- WORK SUMMARY Section -->
   <div class="section">
     <div class="section-title">WORK SUMMARY</div>
+    ${validatedData.workSummary ? `
     <table class="work-summary-table">
       <tr>
         <th>Diagnostics:</th>
-        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.diagnostics))}</td>
+        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.diagnostics || 'N/A'))}</td>
       </tr>
       <tr>
         <th>Actions Taken:</th>
-        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.actionsTaken))}</td>
+        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.actionsTaken || 'N/A'))}</td>
       </tr>
       <tr>
         <th>Results:</th>
-        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.results))}</td>
+        <td>${escapeHtml(removeMarkdown(validatedData.workSummary.results || 'N/A'))}</td>
       </tr>
     </table>
+    ` : '<div style="padding: 10px;">No work summary available.</div>'}
   </div>
-  ` : ''}
 
-  ${validatedData.labour && validatedData.labour.length > 0 ? `
   <!-- LABOUR Section -->
   <div class="section">
     <div class="section-title">LABOUR</div>
+    ${validatedData.labour && validatedData.labour.length > 0 ? `
     <table class="labour-table">
       <thead>
         <tr>
@@ -371,13 +371,13 @@ export function generateHTML(validatedData) {
         </tr>
       </tbody>
     </table>
+    ` : '<div style="padding: 10px;">No labour entries recorded.</div>'}
   </div>
-  ` : ''}
 
-  ${validatedData.materials && validatedData.materials.length > 0 ? `
   <!-- MATERIALS Section -->
   <div class="section">
     <div class="section-title">MATERIALS</div>
+    ${validatedData.materials && validatedData.materials.length > 0 ? `
     <table class="labour-table">
       <thead>
         <tr>
@@ -400,20 +400,20 @@ export function generateHTML(validatedData) {
         `).join('')}
       </tbody>
     </table>
+    ` : '<div style="padding: 10px;">No materials recorded.</div>'}
   </div>
-  ` : ''}
 
-  ${validatedData.photos && validatedData.photos.length > 0 ? `
   <!-- PHOTOGRAPHIC EVIDENCE Section -->
   <div class="section photos-section">
     <div class="section-title">PHOTOGRAPHIC EVIDENCE</div>
+    ${validatedData.photos && validatedData.photos.length > 0 ? `
     <div class="photo-list">
       ${validatedData.photos.map(photo => `
         <div>${escapeHtml(photo.filename || photo.description || 'Photo')}</div>
       `).join('')}
     </div>
+    ` : '<div style="padding: 10px;">No photographs available.</div>'}
   </div>
-  ` : ''}
 
   <!-- Completion & Evidence Statement -->
   <div class="section completion-statement">
@@ -436,8 +436,26 @@ export async function generatePDF(validatedData, photos = []) {
   try {
     logger.info('Generating PDF from HTML...');
     
+    // Log data structure before generating HTML
+    logger.info('[PDF] Data structure:', JSON.stringify({
+      hasJob: !!validatedData.job,
+      hasCustomer: !!validatedData.customer,
+      hasEngineers: !!validatedData.engineers,
+      labourCount: validatedData.labour?.length || 0,
+      materialsCount: validatedData.materials?.length || 0,
+      hasWorkSummary: !!validatedData.workSummary,
+      photosCount: photos?.length || 0
+    }, null, 2));
+    
     validatedData.photos = photos;
     const html = generateHTML(validatedData);
+    
+    // Log HTML length and key sections for debugging
+    logger.info(`[PDF] Generated HTML length: ${html.length} characters`);
+    logger.info(`[PDF] HTML contains OUTCOME: ${html.includes('OUTCOME')}`);
+    logger.info(`[PDF] HTML contains WORK SUMMARY: ${html.includes('WORK SUMMARY')}`);
+    logger.info(`[PDF] HTML contains LABOUR: ${html.includes('LABOUR')}`);
+    logger.info(`[PDF] HTML contains ENGINEER COMPLETION REPORT: ${html.includes('ENGINEER COMPLETION REPORT')}`);
     
     const browser = await puppeteer.launch({
       headless: true,
