@@ -61,6 +61,10 @@ function calculateTotalHours(labour) {
 }
 
 export function generateHTML(validatedData) {
+  // Log template version for debugging
+  logger.info('[TEMPLATE] Generating HTML with ENGINEER COMPLETION REPORT format');
+  logger.info('[TEMPLATE] Environment:', process.env.RAILWAY_DEPLOYMENT_ID ? 'RAILWAY' : 'LOCAL');
+  
   // Get completion date (use current date if not available)
   const completedDate = validatedData.job.status === 'Job - Completed & Checked' 
     ? formatDate(new Date().toISOString())
