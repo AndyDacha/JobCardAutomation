@@ -62,7 +62,8 @@ function calculateTotalHours(labour) {
 
 export function generateHTML(validatedData) {
   // Log template version for debugging
-  logger.info('[TEMPLATE] Generating HTML with ENGINEER COMPLETION REPORT format');
+  const TEMPLATE_VERSION = '1.0.5-FIXED';
+  logger.info(`[TEMPLATE v${TEMPLATE_VERSION}] Generating HTML with ENGINEER COMPLETION REPORT format`);
   logger.info('[TEMPLATE] Environment:', process.env.RAILWAY_DEPLOYMENT_ID ? 'RAILWAY' : 'LOCAL');
   
   // Get completion date (use current date if not available)
@@ -424,10 +425,10 @@ export function generateHTML(validatedData) {
   </div>
   
   <!-- Build ID Stamp -->
-  <div class="build-stamp">${escapeHtml(buildStamp)}</div>
+  <div class="build-stamp">${escapeHtml(buildStamp)} | Template v${TEMPLATE_VERSION}</div>
 </body>
 </html>
-  `;
+`;
   
   return html;
 }
