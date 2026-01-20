@@ -89,13 +89,6 @@ async function processWebhookAsync(webhookData) {
       return;
     }
     
-    // TEMPORARY: Only process job 53582 for testing
-    const TEST_JOB_ID = 53582;
-    if (jobId !== TEST_JOB_ID) {
-      logger.info(`Job ${jobId} is not test job ${TEST_JOB_ID}, skipping (testing mode)`);
-      return;
-    }
-    
     // Check target status (ID 38: "Job - Completed & Checked")
     const targetStatusId = 38;
     
@@ -142,11 +135,7 @@ async function generateAndUploadJobCard(jobId) {
   try {
     // Fetch job data
     const jobCardData = await getJobCardData(jobId);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:143',message:'Job card data fetched',data:{jobId,hasJob:!!jobCardData?.job,hasCustomer:!!jobCardData?.customer,hasWorkSummary:!!jobCardData?.workSummary,workSummaryType:typeof jobCardData?.workSummary,workSummaryKeys:jobCardData?.workSummary?Object.keys(jobCardData.workSummary):null,labourCount:jobCardData?.labour?.length||0,materialsCount:jobCardData?.materials?.length||0,engineersCount:jobCardData?.engineers?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
+
     // Log the data structure being passed to PDF generator
     logger.info(`[DEBUG] Job card data structure for job ${jobId}:`, JSON.stringify({
       job: jobCardData.job,
@@ -160,24 +149,12 @@ async function generateAndUploadJobCard(jobId) {
     
     // Fetch photos
     const photos = await getJobPhotos(jobId);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:158',message:'Photos fetched',data:{photosCount:photos?.length||0,firstPhoto:photos?.[0]?{hasBase64:!!photos[0].base64,hasMimeType:!!photos[0].mimeType,hasDescription:!!photos[0].description,hasFilename:!!photos[0].filename}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    
+
     logger.info(`[DEBUG] Photos fetched: ${photos?.length || 0} photos`);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:161',message:'About to call generatePDF',data:{jobCardDataKeys:Object.keys(jobCardData||{}),photosCount:photos?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-    
+
     // Generate PDF (use v2 template for uploaded job card)
     const pdfBuffer = await generatePDFv2(jobCardData, photos);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:162',message:'PDF generated successfully',data:{pdfBufferType:typeof pdfBuffer,isBuffer:Buffer.isBuffer(pdfBuffer),pdfBufferLength:pdfBuffer?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
-    
+
     // Upload to Simpro
     const filename = `JobCard_Job_${jobId}_${Date.now()}.pdf`;
     await uploadJobCardPDF(jobId, pdfBuffer, filename);
