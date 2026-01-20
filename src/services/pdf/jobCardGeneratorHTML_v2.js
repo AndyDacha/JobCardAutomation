@@ -510,7 +510,7 @@ export function generateHTMLv2(data) {
             `).join('')}
           </div>
           ${photos.length > 9 ? `<div class="fine" style="margin-top:8px;">Showing first 9 photos (PDF size control). Total photos available: ${escapeHtml(String(photos.length))}.</div>` : ''}
-        ` : `<div class="fine">No photos available (or the Simpro attachments endpoint did not return images for this job).</div>`}
+        ` : `<div class="fine">No photos available for this Job.</div>`}
       </div>
     </div>
 
