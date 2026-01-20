@@ -138,6 +138,7 @@ function extractFirstEngineerId(engineers) {
 
 function readSignatureData(employeeOrContractorId) {
   const base = path.join(__dirname, '../../../signatures');
+  const defaultSvgPath = path.join(base, `Default.svg`);
   const defaultPngPath = path.join(base, `Default.png`);
   const defaultJpgPath = path.join(base, `Default.jpg`);
   const defaultJpegPath = path.join(base, `Default.jpeg`);
@@ -161,6 +162,9 @@ function readSignatureData(employeeOrContractorId) {
       return { mime: 'image/svg+xml', base64: Buffer.from(fs.readFileSync(svgPath, 'utf8')).toString('base64') };
     }
     // Fallback to default signature when ID-specific file is missing
+    if (fs.existsSync(defaultSvgPath)) {
+      return { mime: 'image/svg+xml', base64: Buffer.from(fs.readFileSync(defaultSvgPath, 'utf8')).toString('base64') };
+    }
     if (fs.existsSync(defaultPngPath)) {
       return { mime: 'image/png', base64: fs.readFileSync(defaultPngPath).toString('base64') };
     }

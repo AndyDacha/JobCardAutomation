@@ -16,6 +16,7 @@ Job Cards/
 !signatures/**/*.png
 !signatures/**/*.jpg
 !signatures/**/*.jpeg
+!signatures/**/*.svg
 *.sh
 scripts/
 !README.md
