@@ -2,6 +2,7 @@ import express from 'express';
 import { getJobCardData } from '../../services/simpro/jobCardService.js';
 import { getJobPhotos } from '../../services/simpro/jobPhotoService.js';
 import { generatePDF } from '../../services/pdf/jobCardGeneratorHTML.js';
+import { generatePDFv2 } from '../../services/pdf/jobCardGeneratorHTML_v2.js';
 import { uploadJobCardPDF } from '../../services/simpro/jobAttachmentService.js';
 import logger from '../../utils/logger.js';
 
@@ -170,8 +171,8 @@ async function generateAndUploadJobCard(jobId) {
     fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:161',message:'About to call generatePDF',data:{jobCardDataKeys:Object.keys(jobCardData||{}),photosCount:photos?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     
-    // Generate PDF
-    const pdfBuffer = await generatePDF(jobCardData, photos);
+    // Generate PDF (use v2 template for uploaded job card)
+    const pdfBuffer = await generatePDFv2(jobCardData, photos);
     
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:162',message:'PDF generated successfully',data:{pdfBufferType:typeof pdfBuffer,isBuffer:Buffer.isBuffer(pdfBuffer),pdfBufferLength:pdfBuffer?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
