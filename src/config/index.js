@@ -7,7 +7,7 @@ export default {
   simpro: {
     baseUrl: process.env.SIMPRO_BASE_URL || '',
     apiKey: process.env.SIMPRO_API_KEY || '',
-    companyId: process.env.SIMPRO_COMPANY_ID || ''
+    companyId: process.env.SIMPRO_COMPANY_ID || '0'
   },
   nodeEnv: process.env.NODE_ENV || 'development'
 };

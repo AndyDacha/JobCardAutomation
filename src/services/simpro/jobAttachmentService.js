@@ -18,7 +18,11 @@ export async function uploadJobCardPDF(jobId, pdfBuffer, filename) {
   try {
     logger.info(`Uploading job card PDF for job ${jobId}`);
     
-    const base64Data = pdfBuffer.toString('base64');
+    // Ensure pdfBuffer is a Buffer
+    const buffer = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+    logger.info(`PDF buffer type: ${Buffer.isBuffer(buffer) ? 'Buffer' : typeof buffer}, length: ${buffer.length}`);
+    const base64Data = buffer.toString('base64');
+    logger.info(`Base64 data length: ${base64Data.length}, first 50 chars: ${base64Data.substring(0, 50)}`);
     
     // Try primary endpoint first
     const primaryEndpoint = `/companies/${companyId}/jobs/${jobId}/attachments/files/`;

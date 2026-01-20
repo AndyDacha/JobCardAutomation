@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Card Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #F7931E;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #e6821a;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .preview-container {
+            margin-top: 30px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 1200px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Job Card Preview</h1>
+        <form id="previewForm">
+            <div class="form-group">
+                <label for="jobId">Job ID:</label>
+                <input type="number" id="jobId" name="jobId" required placeholder="Enter job ID (e.g., 53582)">
+            </div>
+            <div class="form-group">
+                <label for="template">Template:</label>
+                <select id="template" name="template" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px;box-sizing:border-box;">
+                    <option value="v2" selected>v2 (New SSAIB Job Card)</option>
+                    <option value="v1">v1 (Legacy)</option>
+                </select>
+            </div>
+            <button type="submit" id="previewBtn">Generate Preview</button>
+        </form>
+        <div class="loading" id="loading">
+            <p>Loading job data and generating preview...</p>
+        </div>
+        <div class="message" id="message"></div>
+        <div class="preview-container" id="previewContainer" style="display: none;">
+            <iframe id="previewFrame" src=""></iframe>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('previewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const jobId = document.getElementById('jobId').value;
+            const template = document.getElementById('template').value;
+            const previewBtn = document.getElementById('previewBtn');
+            const loading = document.getElementById('loading');
+            const message = document.getElementById('message');
+            const previewContainer = document.getElementById('previewContainer');
+            const previewFrame = document.getElementById('previewFrame');
+            
+            // Reset UI
+            message.style.display = 'none';
+            previewContainer.style.display = 'none';
+            previewBtn.disabled = true;
+            loading.style.display = 'block';
+            
+            try {
+                // Fetch the job data
+                const jobDataResponse = await fetch(`/api/job-cards/preview-data/${jobId}`);
+                
+                if (!jobDataResponse.ok) {
+                    const errorData = await jobDataResponse.json().catch(() => ({ error: 'Failed to fetch job data' }));
+                    throw new Error(errorData.error || errorData.details || 'Failed to fetch job data');
+                }
+                
+                const jobData = await jobDataResponse.json();
+                
+                // Generate preview HTML
+                jobData.template = template;
+                const htmlResponse = await fetch(`/api/job-cards/preview-html?template=${encodeURIComponent(template)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jobData)
+                });
+                
+                if (!htmlResponse.ok) {
+                    const errorData = await htmlResponse.json().catch(() => ({ error: 'Failed to generate preview HTML' }));
+                    throw new Error(errorData.error || errorData.details || 'Failed to generate preview HTML');
+                }
+                
+                const previewHTML = await htmlResponse.text();
+                
+                // Create blob URL and display in iframe
+                const blob = new Blob([previewHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                previewFrame.src = url;
+                previewContainer.style.display = 'block';
+                
+                message.className = 'message success';
+                message.textContent = 'Preview generated successfully!';
+                message.style.display = 'block';
+                
+            } catch (error) {
+                message.className = 'message error';
+                message.textContent = `Error: ${error.message}`;
+                message.style.display = 'block';
+                console.error('Preview error:', error);
+            } finally {
+                previewBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

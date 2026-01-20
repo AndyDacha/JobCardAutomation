@@ -9,6 +9,8 @@ data/
 Job Cards/
 *.pdf
 *.jpg
+# Do not ignore stored signature images
+!signatures/**/*.png
 *.png
 *.sh
 scripts/

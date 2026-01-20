@@ -142,6 +142,10 @@ async function generateAndUploadJobCard(jobId) {
     // Fetch job data
     const jobCardData = await getJobCardData(jobId);
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:143',message:'Job card data fetched',data:{jobId,hasJob:!!jobCardData?.job,hasCustomer:!!jobCardData?.customer,hasWorkSummary:!!jobCardData?.workSummary,workSummaryType:typeof jobCardData?.workSummary,workSummaryKeys:jobCardData?.workSummary?Object.keys(jobCardData.workSummary):null,labourCount:jobCardData?.labour?.length||0,materialsCount:jobCardData?.materials?.length||0,engineersCount:jobCardData?.engineers?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     // Log the data structure being passed to PDF generator
     logger.info(`[DEBUG] Job card data structure for job ${jobId}:`, JSON.stringify({
       job: jobCardData.job,
@@ -155,10 +159,23 @@ async function generateAndUploadJobCard(jobId) {
     
     // Fetch photos
     const photos = await getJobPhotos(jobId);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:158',message:'Photos fetched',data:{photosCount:photos?.length||0,firstPhoto:photos?.[0]?{hasBase64:!!photos[0].base64,hasMimeType:!!photos[0].mimeType,hasDescription:!!photos[0].description,hasFilename:!!photos[0].filename}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    
     logger.info(`[DEBUG] Photos fetched: ${photos?.length || 0} photos`);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:161',message:'About to call generatePDF',data:{jobCardDataKeys:Object.keys(jobCardData||{}),photosCount:photos?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     
     // Generate PDF
     const pdfBuffer = await generatePDF(jobCardData, photos);
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/55c83b87-82d9-481e-9c1d-7da9d9570ff0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobCards.js:162',message:'PDF generated successfully',data:{pdfBufferType:typeof pdfBuffer,isBuffer:Buffer.isBuffer(pdfBuffer),pdfBufferLength:pdfBuffer?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     
     // Upload to Simpro
     const filename = `JobCard_Job_${jobId}_${Date.now()}.pdf`;
@@ -196,6 +213,61 @@ router.post('/generate-and-upload', async (req, res) => {
   } catch (error) {
     logger.error('Error in generate-and-upload endpoint:', error);
     res.status(500).json({ error: 'Failed to generate job card', details: error.message });
+  }
+});
+
+// Preview endpoint - get job data without generating PDF
+router.get('/preview-data/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    
+    if (!jobId) {
+      return res.status(400).json({ error: 'jobId is required' });
+    }
+    
+    logger.info(`Preview request for job ${jobId}`);
+    
+    // Fetch job data
+    const jobCardData = await getJobCardData(parseInt(jobId));
+    
+    // Fetch photos
+    try {
+      const photos = await getJobPhotos(parseInt(jobId));
+      jobCardData.photos = photos;
+    } catch (e) {
+      logger.warn(`Preview photos skipped for job ${jobId}: ${e.message}`);
+      jobCardData.photos = [];
+    }
+    
+    res.json(jobCardData);
+    
+  } catch (error) {
+    logger.error('Error in preview-data endpoint:', error);
+    res.status(500).json({ error: 'Failed to fetch job data', details: error.message });
+  }
+});
+
+// Preview HTML endpoint - generate HTML for preview
+router.post('/preview-html', async (req, res) => {
+  try {
+    const jobCardData = req.body;
+    const template = (req.query?.template || jobCardData?.template || 'v1').toString().toLowerCase();
+    
+    let html = '';
+    if (template === 'v2') {
+      const { generateHTMLv2 } = await import('../../services/pdf/jobCardGeneratorHTML_v2.js');
+      html = generateHTMLv2(jobCardData);
+    } else {
+      const { generateHTML } = await import('../../services/pdf/jobCardGeneratorHTML.js');
+      html = generateHTML(jobCardData);
+    }
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+    
+  } catch (error) {
+    logger.error('Error in preview-html endpoint:', error);
+    res.status(500).json({ error: 'Failed to generate preview HTML', details: error.message });
   }
 });
 

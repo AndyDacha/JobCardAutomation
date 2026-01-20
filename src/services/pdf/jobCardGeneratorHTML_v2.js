@@ -1,0 +1,438 @@
+import puppeteer from 'puppeteer';
+import logger from '../../utils/logger.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function stripHTML(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  // Our service already normalizes many dates to en-GB strings; keep them as-is.
+  // If this is a machine date, format to en-GB.
+  const asString = String(dateString);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(asString)) return asString;
+  try {
+    const d = new Date(asString);
+    if (isNaN(d.getTime())) return asString;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return asString;
+  }
+}
+
+function nl2br(text) {
+  const t = text ? String(text) : '';
+  return escapeHtml(t).replace(/\n/g, '<br/>');
+}
+
+function formatAddress(addressObj) {
+  if (!addressObj) return '';
+  const address = String(addressObj.Address || '').trim();
+  const city = String(addressObj.City || '').trim();
+  const state = String(addressObj.State || '').trim();
+  const postalCode = String(addressObj.PostalCode || '').trim();
+  const country = String(addressObj.Country || '').trim();
+
+  const parts = [];
+  if (address) {
+    parts.push(...address.split(/\r?\n/).map(s => s.trim()).filter(Boolean));
+  }
+  if (city) parts.push(city);
+  if (state) parts.push(state);
+  if (postalCode) parts.push(postalCode);
+  if (country) parts.push(country);
+
+  return parts.join('\n');
+}
+
+function readLogoBase64() {
+  try {
+    const logoPath = path.join(__dirname, '../../../Dacha Logo/Dacha Orange Logo.png');
+    if (fs.existsSync(logoPath)) {
+      return fs.readFileSync(logoPath).toString('base64');
+    }
+  } catch (e) {
+    logger.warn(`Could not load logo image: ${e.message}`);
+  }
+  return '';
+}
+
+function extractFirstEngineerId(engineers) {
+  if (!Array.isArray(engineers) || engineers.length === 0) return null;
+  const first = String(engineers[0] || '');
+  const m = first.match(/\((\d+)\)/);
+  return m ? m[1] : null;
+}
+
+function readSignatureData(employeeOrContractorId) {
+  if (!employeeOrContractorId) return null;
+  const base = path.join(__dirname, '../../../signatures');
+  const svgPath = path.join(base, `${employeeOrContractorId}.svg`);
+  const pngPath = path.join(base, `${employeeOrContractorId}.png`);
+
+  try {
+    if (fs.existsSync(pngPath)) {
+      return { mime: 'image/png', base64: fs.readFileSync(pngPath).toString('base64') };
+    }
+    if (fs.existsSync(svgPath)) {
+      return { mime: 'image/svg+xml', base64: Buffer.from(fs.readFileSync(svgPath, 'utf8')).toString('base64') };
+    }
+  } catch (e) {
+    logger.warn(`Could not load signature for ${employeeOrContractorId}: ${e.message}`);
+  }
+  return null;
+}
+
+export function generateHTMLv2(data) {
+  const logoBase64 = readLogoBase64();
+
+  const jobId = data?.job?.id ?? '';
+  const jobNumber = data?.job?.jobNumber ?? jobId;
+  const orderNo = data?.job?.orderNo ?? '';
+  const status = data?.job?.status ?? '';
+  const priority = data?.job?.priority ?? '';
+  const createdDate = formatDate(data?.job?.createdDate ?? '');
+  const dateIssued = formatDate(data?.job?.dateIssued ?? '');
+
+  const siteName = data?.site?.name ?? '';
+  const siteAddress = formatAddress(data?.site?.address);
+
+  const customerName = data?.customer?.name ?? '';
+  const customerCompany = data?.customer?.companyName ?? '';
+
+  const engineers = Array.isArray(data?.engineers) ? data.engineers : [];
+  const engineerIdForSignature = extractFirstEngineerId(engineers);
+  const signature = readSignatureData(engineerIdForSignature);
+
+  const initialRequest = stripHTML(data?.job?.initialRequest ?? data?.job?.description ?? '');
+  const assets = Array.isArray(data?.job?.assets) ? data.job.assets : [];
+
+  const workSummary = data?.workSummary || {};
+  const diagnostics = stripHTML(workSummary.diagnostics || '');
+  const actionsTaken = stripHTML(workSummary.actionsTaken || '');
+  const results = stripHTML(workSummary.results || '');
+
+  const materials = Array.isArray(data?.materials) ? data.materials : [];
+  const photos = Array.isArray(data?.photos) ? data.photos : [];
+  const completedDate = formatDate(data?.job?.completedDate ?? '');
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Card #${escapeHtml(String(jobNumber))}</title>
+  <style>
+    @page { margin: 14mm; }
+    :root {
+      --dacha-orange: #F7931E;
+      --dacha-grey: #808080;
+      --text: #222;
+      --muted: #555;
+      --border: #d9d9d9;
+      --bg: #f7f7f7;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: var(--text); margin: 0; }
+    .page { width: 100%; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid var(--dacha-orange);
+      margin-bottom: 10px;
+    }
+    .brand { display: flex; flex-direction: column; gap: 4px; }
+    .brand img { max-width: 210px; max-height: 62px; object-fit: contain; }
+    .brand .meta { color: var(--dacha-grey); font-size: 10px; line-height: 1.2; }
+    .doc {
+      text-align: right;
+      min-width: 260px;
+    }
+    .doc .title { font-size: 18px; font-weight: 800; }
+    .doc .subtitle { color: var(--dacha-grey); font-size: 11px; margin-top: 2px; }
+    .pill {
+      display: inline-block;
+      background: var(--dacha-orange);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 16px;
+      font-weight: 800;
+      margin-top: 8px;
+    }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .card .hd {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      font-weight: 800;
+      color: var(--dacha-grey);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-size: 10px;
+    }
+    .card .bd { padding: 10px; }
+
+    .kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 10px; }
+    .k { color: var(--muted); font-weight: 700; }
+    .v { color: var(--text); }
+
+    .section { margin-top: 10px; }
+    .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
+    th { background: var(--dacha-orange); color: #fff; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .photo { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .photo img { width: 100%; height: 110px; object-fit: cover; display: block; }
+    .photo .cap { padding: 6px 8px; font-size: 10px; color: var(--muted); }
+
+    .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .line { border-bottom: 1px solid var(--border); height: 18px; }
+    .fine { font-size: 10px; color: var(--muted); line-height: 1.3; }
+    .sig-box { height: 54px; display: flex; align-items: center; }
+    .sig-box img { max-height: 54px; max-width: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="brand">
+        ${logoBase64 ? `<img src="data:image/png;base64,${logoBase64}" alt="Dacha SSI" />` : `<div style="font-size:16px;font-weight:800;color:var(--dacha-orange)">Dacha SSI</div>`}
+        <div class="meta">Unit 19 Headlands Business Park Salisbury Road</div>
+        <div class="meta">Tel: 03333 44 55 26 &nbsp;|&nbsp; Email: office@dacha-uk.com</div>
+        <div class="meta">Web: www.dacha-uk.com &nbsp;|&nbsp; VAT Reg. No. 947027513</div>
+      </div>
+      <div class="doc">
+        <div class="title">Job Card</div>
+        <div class="subtitle">Engineer Visit Completion Record</div>
+        <div class="pill">Job #${escapeHtml(String(jobId))}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card avoid-break">
+        <div class="hd">Job Details</div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">Job Number</div><div class="v">#${escapeHtml(String(jobNumber))}</div>
+            <div class="k">Order Number</div><div class="v">${escapeHtml(String(orderNo || ''))}</div>
+            <div class="k">Status</div><div class="v">${escapeHtml(String(status || ''))}</div>
+            <div class="k">Job Name</div><div class="v">${escapeHtml(String(data?.job?.name || ''))}</div>
+            <div class="k">Created</div><div class="v">${escapeHtml(String(createdDate || ''))}</div>
+            <div class="k">Date Issued</div><div class="v">${escapeHtml(String(dateIssued || ''))}</div>
+            <div class="k">Engineer(s)</div><div class="v">${escapeHtml(engineers.join(', ') || '')}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card avoid-break">
+        <div class="hd">Customer / Site</div>
+        <div class="bd">
+          <div class="kv">
+            <div class="k">Customer</div><div class="v">${escapeHtml(String(customerName || ''))}</div>
+            <div class="k">Company</div><div class="v">${escapeHtml(String(customerCompany || ''))}</div>
+            <div class="k">Site</div><div class="v">${escapeHtml(String(siteName || ''))}</div>
+            <div class="k">Address</div><div class="v">${siteAddress ? nl2br(siteAddress) : '<span class="fine">Not available.</span>'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section card">
+      <div class="hd">Initial Request</div>
+      <div class="bd">
+        ${initialRequest ? `<div>${nl2br(initialRequest)}</div>` : `<div class="fine">No initial request text available from Simpro for this job.</div>`}
+      </div>
+    </div>
+
+    ${assets.length > 0 ? `
+    <div class="section card avoid-break">
+      <div class="hd">Assets / Coverage (from job description)</div>
+      <div class="bd">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset Type</th>
+              <th style="width: 24%;">Service Level</th>
+              <th style="width: 14%;">Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${assets.map(a => `
+              <tr>
+                <td>${escapeHtml(a.assetType || '')}</td>
+                <td>${escapeHtml(a.serviceLevel || '')}</td>
+                <td>${escapeHtml(String(a.quantity ?? ''))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="section card">
+      <div class="hd">Work Carried Out</div>
+      <div class="bd">
+        ${(() => {
+          const workNotes = stripHTML(data?.job?.workNotes || data?.workSummary?.workNotes || '').trim();
+          const hasStructured = !!(diagnostics || actionsTaken || results);
+          const hasNotes = !!workNotes;
+
+          if (!hasStructured && !hasNotes) {
+            return `<div class="fine">No work notes recorded.</div>`;
+          }
+
+          const structuredHtml = `
+            <div class="kv" style="grid-template-columns: 130px 1fr; margin-bottom: 8px;">
+              <div class="k">Diagnostics</div><div class="v">${diagnostics ? nl2br(diagnostics) : '<span class="fine">Not recorded.</span>'}</div>
+              <div class="k">Actions Taken</div><div class="v">${actionsTaken ? nl2br(actionsTaken) : '<span class="fine">Not recorded.</span>'}</div>
+              <div class="k">Results</div><div class="v">${results ? nl2br(results) : '<span class="fine">Not recorded.</span>'}</div>
+            </div>
+          `;
+
+          // Avoid duplication: if we already have structured fields, don't also print raw notes.
+          const notesHtml = (hasNotes && !hasStructured)
+            ? `<div><div class="k" style="margin-bottom:4px;">Work Notes</div><div class="v">${nl2br(workNotes)}</div></div>`
+            : '';
+
+          return `${structuredHtml}${notesHtml}`;
+        })()}
+      </div>
+    </div>
+
+    <div class="section card avoid-break">
+      <div class="hd">Materials Used</div>
+      <div class="bd">
+        ${materials.length > 0 ? `
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th style="width: 18%;">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${materials.map(m => `
+              <tr>
+                <td>${escapeHtml(m.name || '')}</td>
+                <td>${escapeHtml(String(m.quantity ?? ''))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ` : `<div class="fine">No materials returned by the tested Simpro endpoints for this job.</div>`}
+      </div>
+    </div>
+
+    <div class="section card">
+      <div class="hd">Photographic Evidence</div>
+      <div class="bd">
+        ${photos.length > 0 ? `
+          <div class="photos">
+            ${photos.slice(0, 9).map(p => `
+              <div class="photo">
+                <img src="data:${escapeHtml(p.mimeType || 'image/jpeg')};base64,${escapeHtml(p.base64 || '')}" alt="Photo"/>
+                <div class="cap">${escapeHtml(p.description || p.filename || 'Photo')}</div>
+              </div>
+            `).join('')}
+          </div>
+          ${photos.length > 9 ? `<div class="fine" style="margin-top:8px;">Showing first 9 photos (PDF size control). Total photos available: ${escapeHtml(String(photos.length))}.</div>` : ''}
+        ` : `<div class="fine">No photos available (or the Simpro attachments endpoint did not return images for this job).</div>`}
+      </div>
+    </div>
+
+    <div class="section card avoid-break">
+      <div class="hd">Compliance / Sign-off</div>
+      <div class="bd">
+        <div class="fine" style="margin-bottom:8px;">
+          Engineer confirms works were completed in accordance with applicable standards and the system was left safe and operational at departure.
+        </div>
+        <div class="sign-grid">
+          <div>
+            <div class="k" style="margin-bottom:4px;">Engineer Name / Signature</div>
+            <div class="sig-box">
+              ${signature ? `<img alt="Engineer Signature" src="data:${escapeHtml(signature.mime)};base64,${escapeHtml(signature.base64)}" />` : '<div class="line" style="width:100%"></div>'}
+            </div>
+            <div class="k" style="margin-top:8px;margin-bottom:4px;">Date</div>
+            <div class="v">${escapeHtml(String(completedDate || ''))}</div>
+          </div>
+          <div>
+            <div class="k" style="margin-bottom:4px;">Customer / Site Representative</div>
+            <div class="v" style="margin-bottom:4px;">${escapeHtml(String(customerName || ''))}</div>
+            <div class="line"></div>
+            <div class="k" style="margin-top:8px;margin-bottom:4px;">Date</div>
+            <div class="v">${escapeHtml(String(completedDate || ''))}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section card">
+      <div class="hd">Completion Statement</div>
+      <div class="bd fine">
+        This job card confirms the works carried out during the visit. Where a customer signature is not obtained, this record shall be deemed accurate unless notified otherwise within a reasonable period.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return html;
+}
+
+export async function generatePDFv2(jobCardData, photos = []) {
+  try {
+    jobCardData.photos = Array.isArray(photos) ? photos : [];
+    const html = generateHTMLv2(jobCardData);
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    page.setDefaultTimeout(60000);
+    await page.setContent(html, { waitUntil: 'load' });
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '14mm', right: '14mm', bottom: '14mm', left: '14mm' }
+    });
+    await browser.close();
+    return pdf;
+  } catch (e) {
+    logger.error('Error generating PDF v2:', e);
+    throw e;
+  }
+}
+
