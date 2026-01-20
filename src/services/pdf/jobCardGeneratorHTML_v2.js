@@ -325,6 +325,7 @@ export function generateHTMLv2(data) {
             <div class="k">Job Name</div><div class="v">${escapeHtml(String(data?.job?.name || ''))}</div>
             <div class="k">Created</div><div class="v">${escapeHtml(String(createdDate || ''))}</div>
             <div class="k">Date Issued</div><div class="v">${escapeHtml(String(dateIssued || ''))}</div>
+            <div class="k">Completed Date</div><div class="v">${escapeHtml(String(completedDate || ''))}</div>
             <div class="k">Engineer(s)</div><div class="v">${escapeHtml(engineers.join(', ') || '')}</div>
           </div>
         </div>
