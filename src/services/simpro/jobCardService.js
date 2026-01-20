@@ -559,14 +559,64 @@ function normalizeScheduleEntries(scheduleDetails) {
     return Number.isFinite(n) ? n : 0;
   };
 
+  const pickTimeAsc = (a, b) => {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    if (!sa) return sb;
+    if (!sb) return sa;
+    return sa.localeCompare(sb) <= 0 ? sa : sb;
+  };
+
+  const pickTimeDesc = (a, b) => {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    if (!sa) return sb;
+    if (!sb) return sa;
+    return sa.localeCompare(sb) >= 0 ? sa : sb;
+  };
+
   for (const sched of details) {
     const date = sched?.Date || '';
     const staffId = sched?.Staff?.ID || sched?.StaffID || sched?.StaffId || sched?.Technician?.ID || '';
     const staffName = sched?.Staff?.Name || sched?.StaffName || sched?.Technician?.Name || '';
 
+    const schedNormal = sched?.NormalTime ?? sched?.NormalHrs ?? sched?.NormalHours ?? null;
+    const schedTravel = sched?.Travel ?? sched?.TravelTime ?? sched?.TravelHrs ?? sched?.TravelHours ?? null;
+
     const blocks = Array.isArray(sched?.Blocks) ? sched.Blocks : [];
+
+    // If Simpro provides schedule-level Normal + Travel, prefer that summary to avoid accidentally
+    // counting travel blocks that are not explicitly typed.
+    if (blocks.length > 0 && schedNormal !== null && schedNormal !== undefined) {
+      const normalN = toNum(schedNormal);
+      const travelN = toNum(schedTravel);
+
+      // If there's any travel time recorded, collapse to one row using NormalTime only.
+      if (travelN > 0) {
+        if (normalN <= 0) continue; // travel-only schedule, exclude it entirely
+
+        let start = '';
+        let end = '';
+        for (const b of blocks) {
+          start = pickTimeAsc(start, b?.StartTime || '');
+          end = pickTimeDesc(end, b?.EndTime || '');
+        }
+
+        entries.push({
+          date,
+          engineerId: staffId ? String(staffId) : '',
+          engineerName: staffName ? String(staffName) : '',
+          startTime: start ? String(start) : '',
+          endTime: end ? String(end) : '',
+          hours: String(schedNormal)
+        });
+        continue;
+      }
+    }
+
     if (blocks.length > 0) {
       for (const b of blocks) {
+        const scheduleRateName = String(b?.ScheduleRate?.Name || '').toLowerCase();
         const blockType = String(
           b?.Type ??
           b?.BlockType ??
@@ -575,6 +625,7 @@ function normalizeScheduleEntries(scheduleDetails) {
           b?.Name ??
           ''
         ).toLowerCase();
+        const typeHint = `${blockType} ${scheduleRateName}`.trim();
 
         const start = b?.StartTime || '';
         const end = b?.EndTime || '';
@@ -584,7 +635,7 @@ function normalizeScheduleEntries(scheduleDetails) {
         const travel = b?.Travel ?? b?.TravelTime ?? b?.TravelHrs ?? b?.TravelHours ?? null;
 
         // Skip travel-only blocks (or explicitly travel typed blocks).
-        if (blockType.includes('travel')) continue;
+        if (typeHint.includes('travel')) continue;
         if (travel !== null && travel !== undefined && toNum(travel) > 0 && toNum(normal) === 0) continue;
 
         const hours =
