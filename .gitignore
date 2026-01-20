@@ -19,6 +19,8 @@ Job Cards/
 !signatures/**/*.svg
 # Do not ignore Contact Us QR code asset
 !Contact Us/**/*.png
+# Do not ignore Dacha logo assets used in PDF header
+!Dacha Logo/**/*.png
 *.sh
 scripts/
 !README.md
