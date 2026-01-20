@@ -1489,18 +1489,19 @@ export async function getJobCardData(jobId) {
     }
 
     // Determine Initial Request text:
-    // Prefer the Job Description (what users expect as the initial request), and only fall back to notes if description is empty.
-    const descriptionCandidate = (descPrefix || (assets.length === 0 ? rawDescriptionText : '') || '').trim();
+    // This should reflect the job's description/request fields — NOT job notes (those belong in "Work Carried Out").
+    // Prefer explicit request fields first, then the job description text.
+    const descriptionCandidate = (descPrefix || (assets.length === 0 ? rawDescriptionText : '') || rawDescriptionText || '').trim();
     const initialRequestFallbacks = [
       job.RequestDescription,
       job.InitialRequest,
       job.Notes,
-      jobNotes
+      descriptionCandidate
     ]
       .map(v => (v ? String(v).trim() : ''))
       .filter(Boolean);
 
-    const initialRequest = descriptionCandidate || initialRequestFallbacks[0] || '';
+    const initialRequest = initialRequestFallbacks[0] || '';
     const workCarriedOut = parseWorkCarriedOutFromText(jobNotes);
     
     // Build job card data

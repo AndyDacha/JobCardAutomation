@@ -382,32 +382,6 @@ export function generateHTMLv2(data) {
       </div>
     </div>
 
-    ${assets.length > 0 ? `
-    <div class="section card avoid-break">
-      <div class="hd">Assets / Coverage (from job description)</div>
-      <div class="bd">
-        <table>
-          <thead>
-            <tr>
-              <th>Asset Type</th>
-              <th style="width: 24%;">Service Level</th>
-              <th style="width: 14%;">Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${assets.map(a => `
-              <tr>
-                <td>${escapeHtml(a.assetType || '')}</td>
-                <td>${escapeHtml(a.serviceLevel || '')}</td>
-                <td>${escapeHtml(String(a.quantity ?? ''))}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    ` : ''}
-
     <div class="section card">
       <div class="hd primary">Work Carried Out</div>
       <div class="bd">
