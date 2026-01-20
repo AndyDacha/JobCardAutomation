@@ -523,6 +523,76 @@ function extractSingleWorkSummary(sections) {
   };
 }
 
+async function fetchSchedulesFromCostCenter({ jobId, sectionId, costCenterId }) {
+  try {
+    // List schedules (requires trailing slash in this build)
+    const listUrl = `/companies/${companyId}/jobs/${jobId}/sections/${sectionId}/costCenters/${costCenterId}/schedules/`;
+    const list = await fetchWithRetry(listUrl);
+    const listArr = Array.isArray(list) ? list : (list ? [list] : []);
+
+    const rows = [];
+    for (const s of listArr) {
+      const scheduleId = s?.ID || s?.Id || s?.id;
+      if (!scheduleId) continue;
+      try {
+        await delay(150);
+        const detailUrl = `/companies/${companyId}/jobs/${jobId}/sections/${sectionId}/costCenters/${costCenterId}/schedules/${scheduleId}`;
+        const detail = await fetchWithRetry(detailUrl);
+        rows.push(detail);
+      } catch (e) {
+        logger.debug(`[DEBUG] Could not fetch schedule detail ${scheduleId}: ${e.message}`);
+      }
+    }
+    return rows;
+  } catch (e) {
+    logger.warn(`[DEBUG] Could not fetch schedules for cost center ${costCenterId}: ${e.message}`);
+    return [];
+  }
+}
+
+function normalizeScheduleEntries(scheduleDetails) {
+  const entries = [];
+  const details = Array.isArray(scheduleDetails) ? scheduleDetails : [];
+
+  for (const sched of details) {
+    const date = sched?.Date || '';
+    const staffId = sched?.Staff?.ID || sched?.StaffID || sched?.StaffId || sched?.Technician?.ID || '';
+    const staffName = sched?.Staff?.Name || sched?.StaffName || sched?.Technician?.Name || '';
+
+    const blocks = Array.isArray(sched?.Blocks) ? sched.Blocks : [];
+    if (blocks.length > 0) {
+      for (const b of blocks) {
+        const start = b?.StartTime || '';
+        const end = b?.EndTime || '';
+        const hours = b?.Hrs ?? b?.Hours ?? b?.NormalTime ?? sched?.TotalHours ?? '';
+        entries.push({
+          date,
+          engineerId: staffId ? String(staffId) : '',
+          engineerName: staffName ? String(staffName) : '',
+          startTime: start ? String(start) : '',
+          endTime: end ? String(end) : '',
+          hours: hours !== null && hours !== undefined ? String(hours) : ''
+        });
+      }
+    } else {
+      // Fallback to schedule-level totals if no blocks
+      const hours = sched?.TotalHours ?? '';
+      entries.push({
+        date,
+        engineerId: staffId ? String(staffId) : '',
+        engineerName: staffName ? String(staffName) : '',
+        startTime: '',
+        endTime: '',
+        hours: hours !== null && hours !== undefined ? String(hours) : ''
+      });
+    }
+  }
+
+  // Sort by date asc then startTime
+  entries.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.startTime || '').localeCompare(b.startTime || ''));
+  return entries;
+}
+
 export async function getJobCardData(jobId) {
   try {
     logger.info(`Fetching job card data for job ${jobId}`);
@@ -549,6 +619,31 @@ export async function getJobCardData(jobId) {
     } catch (e) {
       logger.warn(`[DEBUG] Could not fetch sections list for job ${jobId}: ${e.message}`);
       sectionsList = [];
+    }
+
+    // Fetch schedules from cost center (for Scheduled Time table)
+    let scheduleEntries = [];
+    try {
+      // Use first section and first cost center (matches our working materials approach for 53582)
+      const firstSectionId = sectionsList?.[0]?.ID || sectionsList?.[0]?.Id || sectionsList?.[0]?.id;
+      if (firstSectionId) {
+        await delay(150);
+        const ccUrl = `/companies/${companyId}/jobs/${jobId}/sections/${firstSectionId}/costCenters/`;
+        const ccs = await fetchWithRetry(ccUrl);
+        const ccArr = Array.isArray(ccs) ? ccs : (ccs ? [ccs] : []);
+        const firstCostCenterId = ccArr?.[0]?.ID || ccArr?.[0]?.Id || ccArr?.[0]?.id;
+        if (firstCostCenterId) {
+          const scheduleDetails = await fetchSchedulesFromCostCenter({
+            jobId,
+            sectionId: Number(firstSectionId),
+            costCenterId: Number(firstCostCenterId)
+          });
+          scheduleEntries = normalizeScheduleEntries(scheduleDetails);
+        }
+      }
+    } catch (e) {
+      logger.warn(`[DEBUG] Could not build schedule entries for job ${jobId}: ${e.message}`);
+      scheduleEntries = [];
     }
 
     // Fetch materials from job cost center catalog items (via /catalogs/ endpoint)
@@ -1408,6 +1503,7 @@ export async function getJobCardData(jobId) {
         }
         return null;
       })(),
+      scheduledTime: scheduleEntries,
       sections: sections
     };
     

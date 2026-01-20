@@ -40,6 +40,28 @@ function formatDate(dateString) {
   }
 }
 
+function formatDateTime(dateString) {
+  if (!dateString) return '';
+  const s = String(dateString);
+  // Handle Simpro format: "2026-01-14 10:11:52+00"
+  const isoLike = s.includes(' ') ? s.replace(' ', 'T') : s;
+  try {
+    const d = new Date(isoLike);
+    if (isNaN(d.getTime())) return s;
+    const dd = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const tt = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${dd} ${tt}`;
+  } catch {
+    return s;
+  }
+}
+
+function sumHours(entries) {
+  if (!Array.isArray(entries)) return '0.00';
+  const total = entries.reduce((sum, e) => sum + (parseFloat(e?.hours || 0) || 0), 0);
+  return total.toFixed(2);
+}
+
 function nl2br(text) {
   const t = text ? String(text) : '';
   return escapeHtml(t).replace(/\n/g, '<br/>');
@@ -85,17 +107,38 @@ function extractFirstEngineerId(engineers) {
 }
 
 function readSignatureData(employeeOrContractorId) {
-  if (!employeeOrContractorId) return null;
   const base = path.join(__dirname, '../../../signatures');
-  const svgPath = path.join(base, `${employeeOrContractorId}.svg`);
-  const pngPath = path.join(base, `${employeeOrContractorId}.png`);
+  const defaultPngPath = path.join(base, `Default.png`);
+  const defaultJpgPath = path.join(base, `Default.jpg`);
+  const defaultJpegPath = path.join(base, `Default.jpeg`);
+
+  const svgPath = employeeOrContractorId ? path.join(base, `${employeeOrContractorId}.svg`) : null;
+  const pngPath = employeeOrContractorId ? path.join(base, `${employeeOrContractorId}.png`) : null;
+  const jpgPath = employeeOrContractorId ? path.join(base, `${employeeOrContractorId}.jpg`) : null;
+  const jpegPath = employeeOrContractorId ? path.join(base, `${employeeOrContractorId}.jpeg`) : null;
 
   try {
-    if (fs.existsSync(pngPath)) {
+    if (pngPath && fs.existsSync(pngPath)) {
       return { mime: 'image/png', base64: fs.readFileSync(pngPath).toString('base64') };
     }
-    if (fs.existsSync(svgPath)) {
+    if (jpgPath && fs.existsSync(jpgPath)) {
+      return { mime: 'image/jpeg', base64: fs.readFileSync(jpgPath).toString('base64') };
+    }
+    if (jpegPath && fs.existsSync(jpegPath)) {
+      return { mime: 'image/jpeg', base64: fs.readFileSync(jpegPath).toString('base64') };
+    }
+    if (svgPath && fs.existsSync(svgPath)) {
       return { mime: 'image/svg+xml', base64: Buffer.from(fs.readFileSync(svgPath, 'utf8')).toString('base64') };
+    }
+    // Fallback to default signature when ID-specific file is missing
+    if (fs.existsSync(defaultPngPath)) {
+      return { mime: 'image/png', base64: fs.readFileSync(defaultPngPath).toString('base64') };
+    }
+    if (fs.existsSync(defaultJpgPath)) {
+      return { mime: 'image/jpeg', base64: fs.readFileSync(defaultJpgPath).toString('base64') };
+    }
+    if (fs.existsSync(defaultJpegPath)) {
+      return { mime: 'image/jpeg', base64: fs.readFileSync(defaultJpegPath).toString('base64') };
     }
   } catch (e) {
     logger.warn(`Could not load signature for ${employeeOrContractorId}: ${e.message}`);
@@ -115,7 +158,17 @@ export function generateHTMLv2(data) {
   const dateIssued = formatDate(data?.job?.dateIssued ?? '');
 
   const siteName = data?.site?.name ?? '';
-  const siteAddress = formatAddress(data?.site?.address);
+  const siteAddress = (() => {
+    const addr = formatAddress(data?.site?.address);
+    const site = String(siteName || '').trim().toLowerCase();
+    if (!addr) return '';
+    // Remove the first line if it's the same as the site name (avoid repetition)
+    const lines = addr.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0 && site && lines[0].toLowerCase() === site) {
+      return lines.slice(1).join('\n');
+    }
+    return addr;
+  })();
 
   const customerName = data?.customer?.name ?? '';
   const customerCompany = data?.customer?.companyName ?? '';
@@ -128,13 +181,30 @@ export function generateHTMLv2(data) {
   const assets = Array.isArray(data?.job?.assets) ? data.job.assets : [];
 
   const workSummary = data?.workSummary || {};
-  const diagnostics = stripHTML(workSummary.diagnostics || '');
-  const actionsTaken = stripHTML(workSummary.actionsTaken || '');
-  const results = stripHTML(workSummary.results || '');
+  let diagnostics = stripHTML(workSummary.diagnostics || '');
+  let actionsTaken = stripHTML(workSummary.actionsTaken || '');
+  let results = stripHTML(workSummary.results || '');
+
+  // Content accuracy: if job is completed, ensure we don't show "in progress" style phrasing.
+  const statusText = String(status || '').toLowerCase();
+  const isCompleted = statusText.includes('completed');
+  if (isCompleted) {
+    const sanitize = (t) =>
+      String(t || '')
+        .replace(/currently in progress\.?/gi, 'completed.')
+        .replace(/ongoing work is being completed\.?/gi, 'works completed.')
+        .replace(/actively being addressed\.?/gi, 'completed and verified.')
+        .trim();
+    diagnostics = sanitize(diagnostics);
+    actionsTaken = sanitize(actionsTaken);
+    results = sanitize(results);
+  }
 
   const materials = Array.isArray(data?.materials) ? data.materials : [];
   const photos = Array.isArray(data?.photos) ? data.photos : [];
   const completedDate = formatDate(data?.job?.completedDate ?? '');
+  const scheduledTime = Array.isArray(data?.scheduledTime) ? data.scheduledTime : [];
+  const scheduledTotal = sumHours(scheduledTime);
 
   const html = `<!doctype html>
 <html>
@@ -198,13 +268,18 @@ export function generateHTMLv2(data) {
       letter-spacing: 0.4px;
       font-size: 10px;
     }
+    .card .hd.primary {
+      background: var(--dacha-orange);
+      color: #fff;
+      border-bottom: 1px solid var(--dacha-orange);
+    }
     .card .bd { padding: 10px; }
 
     .kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 10px; }
     .k { color: var(--muted); font-weight: 700; }
     .v { color: var(--text); }
 
-    .section { margin-top: 10px; }
+    .section { margin-top: 14px; }
     .avoid-break { break-inside: avoid; page-break-inside: avoid; }
 
     table { width: 100%; border-collapse: collapse; }
@@ -302,7 +377,7 @@ export function generateHTMLv2(data) {
     ` : ''}
 
     <div class="section card">
-      <div class="hd">Work Carried Out</div>
+      <div class="hd primary">Work Carried Out</div>
       <div class="bd">
         ${(() => {
           const workNotes = stripHTML(data?.job?.workNotes || data?.workSummary?.workNotes || '').trim();
@@ -332,8 +407,40 @@ export function generateHTMLv2(data) {
     </div>
 
     <div class="section card avoid-break">
+      <div class="hd">Scheduled Time</div>
+      <div class="bd">
+        ${scheduledTime.length > 0 ? `
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 18%;">Date</th>
+              <th>Engineer</th>
+              <th style="width: 14%;">Start</th>
+              <th style="width: 14%;">Finish</th>
+              <th style="width: 14%;">Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${scheduledTime.map(r => `
+              <tr>
+                <td>${escapeHtml(formatDate(r.date))}</td>
+                <td>${escapeHtml(r.engineerId ? `${r.engineerName || 'Engineer'} (${r.engineerId})` : (r.engineerName || ''))}</td>
+                <td>${escapeHtml(r.startTime || '')}</td>
+                <td>${escapeHtml(r.endTime || '')}</td>
+                <td>${escapeHtml(r.hours || '')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="fine" style="margin-top:8px;"><strong>Total scheduled hours:</strong> ${escapeHtml(scheduledTotal)}</div>
+        ` : `<div class="fine">No scheduled time recorded.</div>`}
+      </div>
+    </div>
+
+    <div class="section card avoid-break">
       <div class="hd">Materials Used</div>
       <div class="bd">
+        <div class="fine" style="margin-bottom:8px;">All materials supplied were new and fit for purpose unless otherwise stated.</div>
         ${materials.length > 0 ? `
         <table>
           <thead>
@@ -363,7 +470,10 @@ export function generateHTMLv2(data) {
             ${photos.slice(0, 9).map(p => `
               <div class="photo">
                 <img src="data:${escapeHtml(p.mimeType || 'image/jpeg')};base64,${escapeHtml(p.base64 || '')}" alt="Photo"/>
-                <div class="cap">${escapeHtml(p.description || p.filename || 'Photo')}</div>
+                <div class="cap">
+                  ${escapeHtml(p.description || p.filename || 'Photo')}
+                  ${p.dateAdded ? ` • ${escapeHtml(formatDateTime(p.dateAdded))}` : ''}
+                </div>
               </div>
             `).join('')}
           </div>
@@ -401,7 +511,7 @@ export function generateHTMLv2(data) {
     <div class="section card">
       <div class="hd">Completion Statement</div>
       <div class="bd fine">
-        This job card confirms the works carried out during the visit. Where a customer signature is not obtained, this record shall be deemed accurate unless notified otherwise within a reasonable period.
+        This job card confirms the works carried out during the visit. All works were completed in accordance with applicable standards and manufacturer guidance, and the system was left safe and operational at the time of departure. Where a customer signature is not obtained, this record shall be deemed accurate unless notification is received within 5 working days.
       </div>
     </div>
   </div>

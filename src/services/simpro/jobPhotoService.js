@@ -45,6 +45,20 @@ export async function getJobPhotos(jobId) {
       if (!fileId) continue;
 
       try {
+        // Fetch metadata for caption/timestamps (fast; returns JSON)
+        let dateAdded = '';
+        let addedByName = '';
+        let metaMimeType = '';
+        try {
+          const metaUrl = `/companies/${companyId}/jobs/${jobId}/attachments/files/${encodeURIComponent(fileId)}?columns=ID,Filename,MimeType,DateAdded,AddedBy`;
+          const metaRes = await axiosInstance.get(metaUrl);
+          dateAdded = metaRes.data?.DateAdded || metaRes.data?.dateAdded || '';
+          addedByName = metaRes.data?.AddedBy?.Name || metaRes.data?.addedBy?.Name || '';
+          metaMimeType = metaRes.data?.MimeType || metaRes.data?.mimeType || '';
+        } catch (metaErr) {
+          logger.debug(`Could not fetch metadata for attachment file ${fileId}: ${metaErr.message}`);
+        }
+
         const viewUrl = `/companies/${companyId}/jobs/${jobId}/attachments/files/${encodeURIComponent(fileId)}/view/`;
         let mimeType = '';
         let base64 = '';
@@ -60,6 +74,8 @@ export async function getJobPhotos(jobId) {
           const meta = await axiosInstance.get(base64Url);
           mimeType = meta.data?.MimeType || meta.data?.mimeType || '';
           base64 = meta.data?.Base64Data || meta.data?.base64Data || '';
+          dateAdded = dateAdded || meta.data?.DateAdded || meta.data?.dateAdded || '';
+          addedByName = addedByName || meta.data?.AddedBy?.Name || meta.data?.addedBy?.Name || '';
         }
 
         if (!base64) {
@@ -67,13 +83,15 @@ export async function getJobPhotos(jobId) {
         }
 
         if (!mimeType) {
-          mimeType = filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+          mimeType = metaMimeType || (filename.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
         }
 
         photos.push({
           id: fileId,
           filename,
           description: filename,
+          dateAdded,
+          addedByName,
           base64,
           mimeType
         });
