@@ -554,6 +554,11 @@ function normalizeScheduleEntries(scheduleDetails) {
   const entries = [];
   const details = Array.isArray(scheduleDetails) ? scheduleDetails : [];
 
+  const toNum = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   for (const sched of details) {
     const date = sched?.Date || '';
     const staffId = sched?.Staff?.ID || sched?.StaffID || sched?.StaffId || sched?.Technician?.ID || '';
@@ -562,9 +567,34 @@ function normalizeScheduleEntries(scheduleDetails) {
     const blocks = Array.isArray(sched?.Blocks) ? sched.Blocks : [];
     if (blocks.length > 0) {
       for (const b of blocks) {
+        const blockType = String(
+          b?.Type ??
+          b?.BlockType ??
+          b?.ActivityType ??
+          b?.Category ??
+          b?.Name ??
+          ''
+        ).toLowerCase();
+
         const start = b?.StartTime || '';
         const end = b?.EndTime || '';
-        const hours = b?.Hrs ?? b?.Hours ?? b?.NormalTime ?? sched?.TotalHours ?? '';
+
+        // Prefer "NormalTime" (labour) over totals that may include travel.
+        const normal = b?.NormalTime ?? b?.NormalHrs ?? b?.NormalHours ?? null;
+        const travel = b?.Travel ?? b?.TravelTime ?? b?.TravelHrs ?? b?.TravelHours ?? null;
+
+        // Skip travel-only blocks (or explicitly travel typed blocks).
+        if (blockType.includes('travel')) continue;
+        if (travel !== null && travel !== undefined && toNum(travel) > 0 && toNum(normal) === 0) continue;
+
+        const hours =
+          (normal !== null && normal !== undefined)
+            ? normal
+            : (b?.Hrs ?? b?.Hours ?? b?.LabourTime ?? b?.LaborTime ?? sched?.NormalTime ?? sched?.TotalHours ?? '');
+
+        // Skip zero-hour rows (typically travel-only or empty)
+        if (toNum(hours) <= 0) continue;
+
         entries.push({
           date,
           engineerId: staffId ? String(staffId) : '',
@@ -575,8 +605,21 @@ function normalizeScheduleEntries(scheduleDetails) {
         });
       }
     } else {
-      // Fallback to schedule-level totals if no blocks
-      const hours = sched?.TotalHours ?? '';
+      // Fallback to schedule-level totals if no blocks (exclude travel where possible)
+      const normal = sched?.NormalTime ?? sched?.NormalHrs ?? sched?.NormalHours ?? null;
+      const travel = sched?.Travel ?? sched?.TravelTime ?? sched?.TravelHrs ?? sched?.TravelHours ?? null;
+      const total = sched?.TotalHours ?? sched?.Total ?? null;
+      const derived =
+        (total !== null && total !== undefined && travel !== null && travel !== undefined)
+          ? (toNum(total) - toNum(travel))
+          : null;
+
+      const hours =
+        (normal !== null && normal !== undefined)
+          ? normal
+          : (derived !== null ? derived : (total ?? ''));
+
+      if (toNum(hours) <= 0) continue;
       entries.push({
         date,
         engineerId: staffId ? String(staffId) : '',
