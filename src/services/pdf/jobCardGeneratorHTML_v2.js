@@ -207,7 +207,8 @@ export function generateHTMLv2(data) {
   const engineerIdForSignature = extractFirstEngineerId(engineers);
   const signature = readSignatureData(engineerIdForSignature);
 
-  const initialRequest = decodeHTMLEntities(stripHTML(data?.job?.initialRequest ?? data?.job?.description ?? ''));
+  // Strict: Initial Request is only what backend provides from job description; no fallback to other fields
+  const initialRequest = decodeHTMLEntities(stripHTML(data?.job?.initialRequest ?? ''));
   const assets = Array.isArray(data?.job?.assets) ? data.job.assets : [];
 
   const workSummary = data?.workSummary || {};

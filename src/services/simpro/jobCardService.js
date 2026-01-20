@@ -1488,20 +1488,12 @@ export async function getJobCardData(jobId) {
       logger.warn(`[DEBUG] Could not fetch job notes: ${error.message}`);
     }
 
-    // Determine Initial Request text:
-    // This should reflect the job's description/request fields — NOT job notes (those belong in "Work Carried Out").
-    // Prefer explicit request fields first, then the job description text.
-    const descriptionCandidate = (descPrefix || (assets.length === 0 ? rawDescriptionText : '') || rawDescriptionText || '').trim();
-    const initialRequestFallbacks = [
-      job.RequestDescription,
-      job.InitialRequest,
-      job.Notes,
-      descriptionCandidate
-    ]
-      .map(v => (v ? String(v).trim() : ''))
-      .filter(Boolean);
-
-    const initialRequest = initialRequestFallbacks[0] || '';
+    // Determine Initial Request text (STRICT MODE):
+    // - Must come ONLY from the job Description field (cleaned)
+    // - Must NOT fall back to any notes/request fields
+    // - If there is no meaningful description (e.g. description is only the asset list), keep it blank
+    const descriptionCandidate = (descPrefix || (assets.length === 0 ? rawDescriptionText : '') || '').trim();
+    const initialRequest = descriptionCandidate || '';
     const workCarriedOut = parseWorkCarriedOutFromText(jobNotes);
     
     // Build job card data
