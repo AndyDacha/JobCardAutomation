@@ -17,6 +17,8 @@ Job Cards/
 !signatures/**/*.jpg
 !signatures/**/*.jpeg
 !signatures/**/*.svg
+# Do not ignore Contact Us QR code asset
+!Contact Us/**/*.png
 *.sh
 scripts/
 !README.md

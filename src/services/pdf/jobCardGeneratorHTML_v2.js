@@ -129,6 +129,18 @@ function readLogoBase64() {
   return '';
 }
 
+function readContactQrBase64() {
+  try {
+    const qrPath = path.join(__dirname, '../../../Contact Us/Dacha SSI_QR Code.png');
+    if (fs.existsSync(qrPath)) {
+      return fs.readFileSync(qrPath).toString('base64');
+    }
+  } catch (e) {
+    logger.warn(`Could not load contact QR image: ${e.message}`);
+  }
+  return '';
+}
+
 function extractFirstEngineerId(engineers) {
   if (!Array.isArray(engineers) || engineers.length === 0) return null;
   const first = String(engineers[0] || '');
@@ -182,6 +194,7 @@ function readSignatureData(employeeOrContractorId) {
 
 export function generateHTMLv2(data) {
   const logoBase64 = readLogoBase64();
+  const contactQrBase64 = readContactQrBase64();
 
   const jobId = data?.job?.id ?? '';
   const jobNumber = data?.job?.jobNumber ?? jobId;
@@ -333,6 +346,9 @@ export function generateHTMLv2(data) {
     .fine { font-size: 10px; color: var(--muted); line-height: 1.3; }
     .sig-box { height: 54px; display: flex; align-items: center; }
     .sig-box img { max-height: 54px; max-width: 100%; object-fit: contain; }
+    .qr { text-align: center; }
+    .qr img { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto; }
+    .qr .lbl { margin-top: 4px; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
   </style>
 </head>
 <body>
@@ -349,6 +365,11 @@ export function generateHTMLv2(data) {
         <div class="subtitle">Engineer Visit Completion Record</div>
         <div class="pill">Job #${escapeHtml(String(jobId))}</div>
       </div>
+      ${contactQrBase64 ? `
+      <div class="qr">
+        <img src="data:image/png;base64,${contactQrBase64}" alt="Contact Us QR Code" />
+        <div class="lbl">Contact Us</div>
+      </div>` : ''}
     </div>
 
     <div class="grid">
