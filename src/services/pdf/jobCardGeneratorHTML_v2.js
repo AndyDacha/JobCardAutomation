@@ -368,7 +368,6 @@ export function generateHTMLv2(data) {
         <div class="bd">
           <div class="kv">
             <div class="k">Customer</div><div class="v">${escapeHtml(String(customerName || ''))}</div>
-            <div class="k">Company</div><div class="v">${escapeHtml(String(customerCompany || ''))}</div>
             <div class="k">Site</div><div class="v">${escapeHtml(String(siteName || ''))}</div>
             <div class="k">Address</div><div class="v">${siteAddress ? nl2br(siteAddress) : '<span class="fine">Not available.</span>'}</div>
           </div>
