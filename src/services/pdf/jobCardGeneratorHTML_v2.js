@@ -67,6 +67,36 @@ function nl2br(text) {
   return escapeHtml(t).replace(/\n/g, '<br/>');
 }
 
+function decodeHTMLEntities(text) {
+  // Decode a small, safe subset of HTML entities we see in Simpro fields (e.g. &pound;).
+  // We decode to plain text, then later escape before inserting into HTML.
+  let s = String(text || '');
+
+  // Numeric entities
+  s = s.replace(/&#(\d+);/g, (_, n) => {
+    const code = Number(n);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+  });
+  s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+    const code = parseInt(hex, 16);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+  });
+
+  // Common named entities
+  const map = {
+    '&pound;': '£',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&#039;': "'"
+  };
+  s = s.replace(/&(pound|amp|lt|gt|quot);|&#0?39;/g, (m) => map[m] ?? m);
+
+  return s;
+}
+
 function formatAddress(addressObj) {
   if (!addressObj) return '';
   const address = String(addressObj.Address || '').trim();
@@ -177,7 +207,7 @@ export function generateHTMLv2(data) {
   const engineerIdForSignature = extractFirstEngineerId(engineers);
   const signature = readSignatureData(engineerIdForSignature);
 
-  const initialRequest = stripHTML(data?.job?.initialRequest ?? data?.job?.description ?? '');
+  const initialRequest = decodeHTMLEntities(stripHTML(data?.job?.initialRequest ?? data?.job?.description ?? ''));
   const assets = Array.isArray(data?.job?.assets) ? data.job.assets : [];
 
   const workSummary = data?.workSummary || {};
@@ -287,9 +317,11 @@ export function generateHTMLv2(data) {
     th { background: var(--dacha-orange); color: #fff; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
 
     .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .photo { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .photo { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .photo img { width: 100%; height: 110px; object-fit: cover; display: block; }
     .photo .cap { padding: 6px 8px; font-size: 10px; color: var(--muted); }
+
+    .break-before { break-before: page; page-break-before: always; }
 
     .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .line { border-bottom: 1px solid var(--border); height: 18px; }
@@ -463,7 +495,7 @@ export function generateHTMLv2(data) {
       </div>
     </div>
 
-    <div class="section card">
+    <div class="section card break-before">
       <div class="hd">Photographic Evidence</div>
       <div class="bd">
         ${photos.length > 0 ? `
