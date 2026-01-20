@@ -472,8 +472,8 @@ export function generateHTMLv2(data) {
     <div class="section card avoid-break">
       <div class="hd">Materials Used</div>
       <div class="bd">
-        <div class="fine" style="margin-bottom:8px;">All materials supplied were new and fit for purpose unless otherwise stated.</div>
         ${materials.length > 0 ? `
+        <div class="fine" style="margin-bottom:8px;">All materials supplied were new and fit for purpose unless otherwise stated.</div>
         <table>
           <thead>
             <tr>
@@ -490,7 +490,7 @@ export function generateHTMLv2(data) {
             `).join('')}
           </tbody>
         </table>
-        ` : `<div class="fine">No materials returned by the tested Simpro endpoints for this job.</div>`}
+        ` : `<div class="fine">No Materials used for this Job</div>`}
       </div>
     </div>
 
