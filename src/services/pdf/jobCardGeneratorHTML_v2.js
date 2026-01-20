@@ -424,7 +424,7 @@ export function generateHTMLv2(data) {
             ${scheduledTime.map(r => `
               <tr>
                 <td>${escapeHtml(formatDate(r.date))}</td>
-                <td>${escapeHtml(r.engineerId ? `${r.engineerName || 'Engineer'} (${r.engineerId})` : (r.engineerName || ''))}</td>
+                <td>${escapeHtml(r.engineerId ? `Dacha Engineer (${r.engineerId})` : 'Dacha Engineer')}</td>
                 <td>${escapeHtml(r.startTime || '')}</td>
                 <td>${escapeHtml(r.endTime || '')}</td>
                 <td>${escapeHtml(r.hours || '')}</td>
