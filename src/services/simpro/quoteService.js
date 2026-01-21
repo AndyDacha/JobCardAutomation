@@ -139,16 +139,11 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
   const qid = String(quoteId);
 
   const endpoints = [
-    `/companies/${companyId}/tasks/`,
-    `/companies/${companyId}/tasks`,
-    `/tasks/`,
-    `/tasks`,
+    // These are confirmed to exist via our probe (GET 200) when using trailing slash.
     `/companies/${companyId}/quotes/${encodeURIComponent(qid)}/tasks/`,
-    `/companies/${companyId}/quotes/${encodeURIComponent(qid)}/tasks`,
-    `/companies/${companyId}/staff/${encodeURIComponent(sid)}/tasks/`,
-    `/companies/${companyId}/staff/${encodeURIComponent(sid)}/tasks`,
-    `/companies/${companyId}/activities/`,
-    `/companies/${companyId}/activities`
+    `/companies/${companyId}/tasks/`,
+    // Keep a couple of fallbacks (some tenants expose only one or the other)
+    `/companies/${companyId}/tasks`
   ];
 
   // Try a couple of common payload shapes to maximize compatibility.
@@ -158,15 +153,13 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
       Subject: subject,
       Description: description,
       DueDate: dueDate,
-      Staff: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid },
-      Quote: { ID: Number.isFinite(Number(qid)) ? Number(qid) : qid }
+      Staff: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid }
     },
     {
       Name: subject,
       Notes: description,
       DueDate: dueDate,
-      AssignedTo: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid },
-      Quote: { ID: Number.isFinite(Number(qid)) ? Number(qid) : qid }
+      AssignedTo: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid }
     },
     {
       Subject: subject,

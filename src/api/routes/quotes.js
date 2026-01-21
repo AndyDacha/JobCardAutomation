@@ -111,6 +111,39 @@ router.post('/create-review-task', async (req, res) => {
   }
 });
 
+// Manual force-create endpoint (bypasses trigger check) - for testing only.
+// Body: { quoteId: 4315, assigneeStaffId: 10 }
+router.post('/create-task', async (req, res) => {
+  try {
+    const quoteId = req.body?.quoteId || req.body?.QuoteId || req.body?.quoteID;
+    const assigneeStaffId = req.body?.assigneeStaffId || req.body?.AssigneeStaffId || req.body?.staffId || req.body?.StaffId;
+    if (!quoteId) return res.status(400).json({ error: 'quoteId is required' });
+    if (!assigneeStaffId) return res.status(400).json({ error: 'assigneeStaffId is required' });
+
+    const quote = await getQuoteForAutomation(quoteId);
+    const taskResult = await createReviewTaskForQuote({
+      quote,
+      quoteId: String(quoteId),
+      assigneeStaffId: String(assigneeStaffId),
+      assigneeName: `Staff ${assigneeStaffId}`,
+      triggerFieldId: '73',
+      yesValue: 'Yes'
+    });
+
+    return res.json({ success: true, quoteId: String(quoteId), assigneeStaffId: String(assigneeStaffId), taskResult });
+  } catch (e) {
+    logger.error('Error in create-task:', e);
+    const status = e?.response?.status;
+    const data = e?.response?.data;
+    return res.status(500).json({
+      error: 'Failed to create task',
+      details: e.message,
+      simproStatus: status,
+      simproResponse: data
+    });
+  }
+});
+
 function extractQuoteId(webhookData) {
   return (
     webhookData?.reference?.quoteID ||
