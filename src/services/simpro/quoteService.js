@@ -141,6 +141,12 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
   const endpoints = [
     `/companies/${companyId}/tasks/`,
     `/companies/${companyId}/tasks`,
+    `/tasks/`,
+    `/tasks`,
+    `/companies/${companyId}/quotes/${encodeURIComponent(qid)}/tasks/`,
+    `/companies/${companyId}/quotes/${encodeURIComponent(qid)}/tasks`,
+    `/companies/${companyId}/staff/${encodeURIComponent(sid)}/tasks/`,
+    `/companies/${companyId}/staff/${encodeURIComponent(sid)}/tasks`,
     `/companies/${companyId}/activities/`,
     `/companies/${companyId}/activities`
   ];
@@ -212,5 +218,39 @@ export async function createReviewTaskForQuote({
 
   logger.info(`Creating quote review task for quote ${quoteId} assigned to staff ${assigneeStaffId}`);
   return await tryCreateTask({ subject, description, dueDate, assigneeStaffId, quoteId });
+}
+
+export async function probeTaskEndpoints({ quoteId, staffId }) {
+  const qid = encodeURIComponent(String(quoteId));
+  const sid = encodeURIComponent(String(staffId));
+  const candidates = [
+    `/companies/${companyId}/tasks/`,
+    `/companies/${companyId}/tasks`,
+    `/tasks/`,
+    `/tasks`,
+    `/companies/${companyId}/quotes/${qid}/tasks/`,
+    `/companies/${companyId}/quotes/${qid}/tasks`,
+    `/companies/${companyId}/staff/${sid}/tasks/`,
+    `/companies/${companyId}/staff/${sid}/tasks`,
+    `/companies/${companyId}/activities/`,
+    `/companies/${companyId}/activities`
+  ];
+
+  const results = [];
+  for (const url of candidates) {
+    try {
+      const res = await axiosInstance.get(url);
+      results.push({ url, status: res.status, ok: true });
+    } catch (e) {
+      results.push({
+        url,
+        status: e?.response?.status ?? null,
+        ok: false,
+        message: e?.message || '',
+        data: e?.response?.data ? JSON.stringify(e.response.data).slice(0, 400) : ''
+      });
+    }
+  }
+  return results;
 }
 

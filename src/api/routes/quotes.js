@@ -1,6 +1,6 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote } from '../../services/simpro/quoteService.js';
+import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints } from '../../services/simpro/quoteService.js';
 
 const router = express.Router();
 
@@ -200,6 +200,18 @@ router.get('/preview-trigger/:quoteId', async (req, res) => {
   } catch (e) {
     logger.error('Error in preview-trigger:', e);
     res.status(500).json({ error: 'Failed to preview quote trigger', details: e.message });
+  }
+});
+
+// Debug: probe which Tasks endpoints exist (helps align to Simpro API without relying on APIDoc)
+router.get('/probe-task-endpoints/:quoteId/:staffId', async (req, res) => {
+  try {
+    const { quoteId, staffId } = req.params;
+    const results = await probeTaskEndpoints({ quoteId, staffId });
+    res.json({ quoteId: String(quoteId), staffId: String(staffId), results });
+  } catch (e) {
+    logger.error('Error in probe-task-endpoints:', e);
+    res.status(500).json({ error: 'Failed to probe task endpoints', details: e.message });
   }
 });
 
