@@ -49,8 +49,8 @@ export async function getJobLinkInfo(jobId) {
 
   // Try a few likely column sets to surface quote linkage without relying on APIDoc.
   const urls = [
-    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,JobNumber,Quote,QuoteNo,QuoteID,Customer,Site,Status,DateModified`,
-    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,Quote,Customer,Site,Status`,
+    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,JobNumber,Quote,QuoteNo,QuoteID,Customer,Site,Status,DateModified,CompletedDate,DateCompleted,Tags`,
+    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,Quote,Customer,Site,Status,CompletedDate,DateCompleted,Tags`,
     `/companies/${companyId}/jobs/${jid}` // fallback (full default)
   ];
 

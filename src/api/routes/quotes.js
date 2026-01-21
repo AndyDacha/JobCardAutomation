@@ -2,6 +2,7 @@ import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
+import { ensureCompletionDayTask } from '../../services/simpro/renewalService.js';
 
 const router = express.Router();
 
@@ -187,6 +188,7 @@ async function processQuoteWebhookAsync(webhookData) {
   // If this is a job event (e.g. conversion-created/updated), attempt to carry the quote flag onto the job via tag.
   if (jobId) {
     await processJobWebhookForMaintenanceTag({ webhookData, jobId });
+    await processJobCompletionForMaintenanceTasks({ webhookData, jobId });
     // Continue, but don't require quoteId for job events
     if (!quoteId) return;
   } else if (!quoteId) {
@@ -273,6 +275,56 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
     logger.info(`Maintenance tag ensured on job ${jobId} (tag ${tagId}). alreadyPresent=${result.alreadyPresent}`);
   } catch (e) {
     logger.error(`Error applying maintenance tag to job ${jobId}:`, e?.response?.data || e.message || e);
+  }
+}
+
+async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
+  try {
+    const statusId =
+      webhookData?.reference?.statusID ||
+      webhookData?.reference?.statusId ||
+      webhookData?.statusId ||
+      webhookData?.Status?.ID ||
+      webhookData?.Status?.Id ||
+      null;
+
+    // Only run on explicit status change to Completed (ID 12)
+    if (Number(statusId) !== 12) return;
+
+    const tagId = Number(process.env.MAINTENANCE_CONTRACT_TAG_ID || 256);
+    const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
+
+    const link = await getJobLinkInfo(jobId);
+    const raw = link?.raw || {};
+    const tags = raw.Tags || raw.tags || [];
+    const tagIds = Array.isArray(tags) ? tags.map((t) => Number(t?.ID ?? t)).filter((n) => Number.isFinite(n)) : [];
+    if (!tagIds.includes(tagId)) {
+      logger.info(`Job ${jobId} completed but does not have maintenance tag ${tagId}; skipping completion-day task.`);
+      return;
+    }
+
+    const completedDate = raw.CompletedDate || raw.DateCompleted || '';
+    const completedDateYYYYMMDD = String(completedDate || '').slice(0, 10);
+    if (!completedDateYYYYMMDD) {
+      logger.warn(`Job ${jobId} completed webhook received but no CompletedDate found on job; skipping completion-day task.`);
+      return;
+    }
+
+    const siteName = raw?.Site?.Name || raw?.SiteName || '';
+    const customerName = raw?.Customer?.Name || raw?.CustomerName || '';
+
+    const res = await ensureCompletionDayTask({
+      jobId,
+      jobNumber: link?.jobNumber || jobId,
+      siteName,
+      customerName,
+      completedDateYYYYMMDD,
+      assignedToId
+    });
+
+    logger.info(`Completion-day maintenance task for job ${jobId}: created=${res.created} subject="${res.subject}"`);
+  } catch (e) {
+    logger.error(`Error creating completion-day maintenance task for job ${jobId}:`, e?.response?.data || e.message || e);
   }
 }
 

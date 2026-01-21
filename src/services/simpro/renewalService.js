@@ -110,6 +110,42 @@ async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId 
   return res.data;
 }
 
+export async function ensureCompletionDayTask({
+  jobId,
+  jobNumber,
+  siteName,
+  customerName,
+  completedDateYYYYMMDD,
+  assignedToId = 12
+}) {
+  const subject = `Maintenance Contract Started - Job #${jobNumber || jobId}`;
+
+  const existing = await searchTasksBySubject(subject);
+  const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
+  if (already) return { created: false, subject };
+
+  const completedDate = parseDateOnly(completedDateYYYYMMDD);
+  const renewalDue = completedDate ? addMonthsUtc(completedDate, 12) : null;
+  const renewalDueStr = renewalDue ? toDateOnlyString(renewalDue) : '';
+
+  const description =
+    `Maintenance contract started (triggered on job completion).\n` +
+    `Job ID: ${jobId}\n` +
+    `Job Number: ${jobNumber || jobId}\n` +
+    (siteName ? `Site: ${siteName}\n` : '') +
+    (customerName ? `Customer: ${customerName}\n` : '') +
+    (completedDateYYYYMMDD ? `Maintenance Start Date: ${completedDateYYYYMMDD}\n` : '') +
+    (renewalDueStr ? `Renewal Due Date: ${renewalDueStr}\n` : '');
+
+  const task = await createTask({
+    subject,
+    description,
+    dueDateYYYYMMDD: completedDateYYYYMMDD,
+    assignedToId
+  });
+  return { created: true, subject, taskId: task?.ID || task?.Id || task?.id || null };
+}
+
 export async function ensureRenewalTask({
   jobId,
   jobNumber,
