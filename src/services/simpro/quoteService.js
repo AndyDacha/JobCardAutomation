@@ -44,6 +44,34 @@ async function tryGetJson(urls) {
   return null;
 }
 
+export async function getJobLinkInfo(jobId) {
+  const jid = encodeURIComponent(String(jobId));
+
+  // Try a few likely column sets to surface quote linkage without relying on APIDoc.
+  const urls = [
+    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,JobNumber,Quote,QuoteNo,QuoteID,Customer,Site,Status,DateModified`,
+    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,Quote,Customer,Site,Status`,
+    `/companies/${companyId}/jobs/${jid}` // fallback (full default)
+  ];
+
+  const job = await tryGetJson(urls);
+
+  const quoteId =
+    job?.Quote?.ID ?? job?.Quote?.Id ?? job?.Quote?.id ??
+    job?.QuoteID ?? job?.QuoteId ?? job?.quoteId ??
+    job?.SourceQuote?.ID ?? job?.SourceQuote?.Id ?? job?.SourceQuote?.id ??
+    job?.ConvertedFromQuote?.ID ?? job?.ConvertedFromQuote?.Id ?? job?.ConvertedFromQuote?.id ??
+    null;
+
+  return {
+    jobId: job?.ID ?? job?.Id ?? job?.id ?? jobId,
+    jobNumber: job?.JobNo ?? job?.JobNumber ?? job?.ID ?? '',
+    status: job?.Status?.Name ?? job?.Status ?? '',
+    quoteId: quoteId !== null && quoteId !== undefined ? String(quoteId) : null,
+    raw: job
+  };
+}
+
 function normalizeCustomFields(raw) {
   const fields = Array.isArray(raw)
     ? raw

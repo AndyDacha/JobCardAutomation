@@ -1,6 +1,6 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate } from '../../services/simpro/quoteService.js';
+import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 
 const router = express.Router();
 
@@ -264,6 +264,18 @@ router.get('/probe-task-create/:quoteId/:staffId', async (req, res) => {
   } catch (e) {
     logger.error('Error in probe-task-create:', e);
     res.status(500).json({ error: 'Failed to probe task create', details: e.message });
+  }
+});
+
+// Debug: inspect job record for quote linkage (after conversion)
+router.get('/debug-job-link/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const info = await getJobLinkInfo(jobId);
+    res.json(info);
+  } catch (e) {
+    logger.error('Error in debug-job-link:', e);
+    res.status(500).json({ error: 'Failed to fetch job link info', details: e.message });
   }
 });
 
