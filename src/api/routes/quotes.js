@@ -3,6 +3,7 @@ import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
 import { ensureCompletionDayTask } from '../../services/simpro/renewalService.js';
+import { probeCreateJobNote } from '../../services/simpro/jobNoteService.js';
 
 const router = express.Router();
 
@@ -460,6 +461,19 @@ router.get('/probe-job-patch-tags/:jobId', async (req, res) => {
   } catch (e) {
     logger.error('Error in probe-job-patch-tags:', e);
     res.status(500).json({ error: 'Failed to probe job tag patch', details: e.message, simproStatus: e?.response?.status, simproResponse: e?.response?.data });
+  }
+});
+
+// Debug: probe job note creation payloads (for audit log notes)
+router.get('/probe-job-note-create/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const noteText = String(req.query?.text || 'Maintenance Contract audit note (probe).');
+    const result = await probeCreateJobNote(jobId, noteText);
+    res.json({ jobId: String(jobId), ...result });
+  } catch (e) {
+    logger.error('Error probing job note creation:', e);
+    res.status(500).json({ error: 'Failed to probe job note creation', details: e.message, simproStatus: e?.response?.status, simproResponse: e?.response?.data });
   }
 });
 
