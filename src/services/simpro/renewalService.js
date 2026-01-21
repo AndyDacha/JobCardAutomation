@@ -104,7 +104,7 @@ export async function listRecentTasks({ pageSize = 200, page = 1 } = {}) {
   return normalizeList(res.data);
 }
 
-async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId }) {
+async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId, jobId = null }) {
   const url = `/companies/${companyId}/tasks/`;
   const payload = {
     Subject: subject,
@@ -112,6 +112,10 @@ async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId 
     DueDate: dueDateYYYYMMDD,
     AssignedTo: Number(assignedToId)
   };
+  // Discovered: job association works via Associated: { Job: { ID } }
+  if (jobId !== null && jobId !== undefined && String(jobId).trim() !== '') {
+    payload.Associated = { Job: { ID: Number(jobId) } };
+  }
   const res = await requestWithRetry('post', url, payload, 2);
   return res.data;
 }
@@ -174,7 +178,8 @@ export async function ensureCompletionDayTask({
     subject,
     description,
     dueDateYYYYMMDD: completedDateYYYYMMDD,
-    assignedToId
+    assignedToId,
+    jobId
   });
   return { created: true, subject, taskId: task?.ID || task?.Id || task?.id || null };
 }
@@ -207,7 +212,8 @@ export async function ensureRenewalTask({
     subject,
     description,
     dueDateYYYYMMDD,
-    assignedToId
+    assignedToId,
+    jobId
   });
   return { created: true, subject, taskId: task?.ID || task?.Id || task?.id || null };
 }
