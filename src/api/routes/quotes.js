@@ -1,7 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
-import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags } from '../../services/simpro/tagService.js';
+import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
 
 const router = express.Router();
 
@@ -176,7 +176,20 @@ function extractWebhookKey(webhookData, quoteId) {
 
 async function processQuoteWebhookAsync(webhookData) {
   const quoteId = extractQuoteId(webhookData);
-  if (!quoteId) {
+  const jobId =
+    webhookData?.reference?.jobID ||
+    webhookData?.reference?.jobId ||
+    webhookData?.reference?.JobID ||
+    webhookData?.Job?.ID ||
+    webhookData?.jobId ||
+    webhookData?.job?.id;
+
+  // If this is a job event (e.g. conversion-created/updated), attempt to carry the quote flag onto the job via tag.
+  if (jobId) {
+    await processJobWebhookForMaintenanceTag({ webhookData, jobId });
+    // Continue, but don't require quoteId for job events
+    if (!quoteId) return;
+  } else if (!quoteId) {
     logger.warn('Quote webhook missing quote ID; skipping.');
     return;
   }
@@ -226,6 +239,41 @@ async function processQuoteWebhookAsync(webhookData) {
     triggerFieldName,
     yesValue
   });
+}
+
+async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
+  try {
+    const action = String(webhookData?.action || '').toLowerCase();
+    const id = String(webhookData?.ID || webhookData?.id || '').toLowerCase();
+
+    // Only react to job create/update events (conversion commonly produces job.created/job.updated)
+    if (!(id.startsWith('job.') || webhookData?.name === 'Job')) return;
+    if (action && !['created', 'updated'].includes(action)) {
+      return;
+    }
+
+    const tagId = Number(process.env.MAINTENANCE_CONTRACT_TAG_ID || 256);
+
+    // Determine whether this job was converted from a quote (job must have quoteId linkage)
+    const link = await getJobLinkInfo(jobId);
+    if (!link?.quoteId) {
+      logger.info(`Job ${jobId} has no linked quoteId; skipping maintenance tagging.`);
+      return;
+    }
+
+    // Check quote CF73 = Yes
+    const quote = await getQuoteForAutomation(link.quoteId);
+    const match = quoteMatchesTrigger(quote?.customFields, { triggerFieldId: '73', yesValue: 'Yes' });
+    if (!match) {
+      logger.info(`Linked quote ${link.quoteId} for job ${jobId} does not have CF73=Yes; skipping maintenance tag.`);
+      return;
+    }
+
+    const result = await ensureJobHasTag({ jobId, tagId });
+    logger.info(`Maintenance tag ensured on job ${jobId} (tag ${tagId}). alreadyPresent=${result.alreadyPresent}`);
+  } catch (e) {
+    logger.error(`Error applying maintenance tag to job ${jobId}:`, e?.response?.data || e.message || e);
+  }
 }
 
 // Debug helper endpoint (no PDF / job card impact)

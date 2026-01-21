@@ -452,3 +452,33 @@ export async function probeJobPatchForTags({ jobId, tagId }) {
   return { url, results };
 }
 
+export async function getJobTagIds(jobId) {
+  const jid = encodeURIComponent(String(jobId));
+  const url = `/companies/${companyId}/jobs/${jid}?columns=ID,Tags`;
+  const job = await tryGet(url);
+  const tags = job?.Tags || job?.tags || [];
+  const ids = Array.isArray(tags)
+    ? tags
+      .map((t) => t?.ID ?? t?.Id ?? t?.id ?? t)
+      .map((v) => (v !== null && v !== undefined ? Number(v) : NaN))
+      .filter((n) => Number.isFinite(n))
+    : [];
+  return ids;
+}
+
+export async function ensureJobHasTag({ jobId, tagId }) {
+  const tid = Number(tagId);
+  if (!Number.isFinite(tid)) throw new Error(`Invalid tagId: ${tagId}`);
+
+  const existing = await getJobTagIds(jobId);
+  if (existing.includes(tid)) {
+    return { alreadyPresent: true, tagIds: existing };
+  }
+
+  const next = [...existing, tid];
+  const jid = encodeURIComponent(String(jobId));
+  const url = `/companies/${companyId}/jobs/${jid}`;
+  await axiosInstance.patch(url, { Tags: next });
+  return { alreadyPresent: false, tagIds: next };
+}
+
