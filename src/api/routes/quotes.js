@@ -44,13 +44,11 @@ router.post('/create-review-task', async (req, res) => {
     if (!quoteId) return res.status(400).json({ error: 'quoteId is required' });
     if (!assigneeStaffId) return res.status(400).json({ error: 'assigneeStaffId is required' });
 
-    const triggerFieldId = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_ID || '';
-    const triggerFieldName = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_NAME || '';
-    const yesValue = process.env.QUOTE_TRIGGER_YES_VALUE || 'YES';
-
-    if (!triggerFieldId && !triggerFieldName) {
-      return res.status(400).json({ error: 'QUOTE_TRIGGER_CUSTOM_FIELD_ID or QUOTE_TRIGGER_CUSTOM_FIELD_NAME must be set' });
-    }
+    // For manual testing, allow override via request body.
+    // Defaults to the known trigger field ID 73 if not provided.
+    const triggerFieldId = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_ID || req.body?.triggerFieldId || '73';
+    const triggerFieldName = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_NAME || req.body?.triggerFieldName || '';
+    const yesValue = process.env.QUOTE_TRIGGER_YES_VALUE || req.body?.yesValue || 'YES';
 
     const quote = await getQuoteForAutomation(quoteId);
     const match = quoteMatchesTrigger(quote?.customFields, { triggerFieldId, triggerFieldName, yesValue });
