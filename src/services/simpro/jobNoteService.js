@@ -78,3 +78,38 @@ export async function createJobNote(jobId, noteText) {
   return res.data;
 }
 
+export async function searchJobNotes(jobId, searchTerm) {
+  const jid = encodeURIComponent(String(jobId));
+  const url = `/companies/${companyId}/jobs/${jid}/notes/`;
+  const term = String(searchTerm || '').trim();
+  const payloads = [
+    term ? { SearchTerm: term } : {},
+    term ? { searchTerm: term } : {}
+  ];
+  for (const p of payloads) {
+    try {
+      const res = await requestWithRetry('SEARCH', url, p, 2);
+      const data = res.data;
+      return Array.isArray(data) ? data : (data ? [data] : []);
+    } catch {
+      // try next payload
+    }
+  }
+  return [];
+}
+
+export async function createJobNoteOnce(jobId, noteText, uniqueKey) {
+  const key = String(uniqueKey || '').trim();
+  if (!key) throw new Error('uniqueKey is required for createJobNoteOnce');
+
+  const existing = await searchJobNotes(jobId, key);
+  const already = existing.some((n) => {
+    const note = String(n?.Note || n?.note || n?.Text || n?.text || n?.Description || n?.description || '');
+    return note.includes(key);
+  });
+  if (already) return { created: false, key };
+
+  await createJobNote(jobId, `${noteText}\n\n${key}`);
+  return { created: true, key };
+}
+

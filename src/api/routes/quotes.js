@@ -3,7 +3,7 @@ import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
 import { ensureCompletionDayTask, addMonthsUtc, parseDateOnly, toDateOnlyString } from '../../services/simpro/renewalService.js';
-import { createJobNote } from '../../services/simpro/jobNoteService.js';
+import { createJobNoteOnce } from '../../services/simpro/jobNoteService.js';
 
 const router = express.Router();
 
@@ -283,7 +283,7 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
         `Maintenance contract included (Quote CF73 = Yes).\n` +
         `Applied job tag: Maintenance Contract (Tag ID ${tagId}).`;
       try {
-        await createJobNote(jobId, note);
+        await createJobNoteOnce(jobId, note, `[MC_AUTOMATION:CONVERSION_TAG_APPLIED:${tagId}]`);
       } catch (e) {
         logger.warn(`Could not create maintenance audit note for job ${jobId}: ${e.message}`);
       }
@@ -366,7 +366,7 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
         `Note: Simpro task notifications will email the assignee when each reminder task is created.`;
 
       try {
-        await createJobNote(jobId, note);
+        await createJobNoteOnce(jobId, note, `[MC_AUTOMATION:COMPLETION_SCHEDULE:${completedDateYYYYMMDD}]`);
       } catch (e) {
         logger.warn(`Could not create completion audit note for job ${jobId}: ${e.message}`);
       }
