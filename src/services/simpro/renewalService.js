@@ -79,7 +79,7 @@ export function getJobCompletedDate(job) {
   return parseDateOnly(raw);
 }
 
-async function searchTasksBySubject(subject) {
+export async function searchTasksBySubject(subject) {
   const url = `/companies/${companyId}/tasks/`;
   const payloads = [
     { SearchTerm: subject },
