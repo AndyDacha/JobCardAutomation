@@ -9,6 +9,7 @@ const processedQuoteWebhooks = new Set();
 let lastQuoteWebhook = null;
 let lastQuoteWebhookAt = null;
 let quoteWebhookCount = 0;
+const createdManualTasks = new Set();
 
 router.get('/webhook', (req, res) => {
   res.json({
@@ -119,6 +120,13 @@ router.post('/create-task', async (req, res) => {
     const assigneeStaffId = req.body?.assigneeStaffId || req.body?.AssigneeStaffId || req.body?.staffId || req.body?.StaffId;
     if (!quoteId) return res.status(400).json({ error: 'quoteId is required' });
     if (!assigneeStaffId) return res.status(400).json({ error: 'assigneeStaffId is required' });
+
+    const dedupeKey = `${quoteId}:${assigneeStaffId}:create-task`;
+    if (createdManualTasks.has(dedupeKey)) {
+      return res.status(200).json({ success: true, deduped: true, quoteId: String(quoteId), assigneeStaffId: String(assigneeStaffId) });
+    }
+    createdManualTasks.add(dedupeKey);
+    if (createdManualTasks.size > 5000) createdManualTasks.clear();
 
     const quote = await getQuoteForAutomation(quoteId);
     const taskResult = await createReviewTaskForQuote({

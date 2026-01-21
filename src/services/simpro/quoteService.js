@@ -250,20 +250,6 @@ export async function probeTaskCreate({ quoteId, staffId }) {
     `/companies/${companyId}/quotes/${qid}/tasks/`
   ];
 
-  const basePayload = {
-    Subject: `Probe task create (quote ${quoteId})`,
-    Description: 'Probe created by automation service to confirm task creation endpoint.',
-    DueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10) // YYYY-MM-DD
-  };
-
-  const payloads = [
-    { label: 'Staff', data: { ...basePayload, Staff: { ID: Number(sid) } } },
-    { label: 'AssignedToInt', data: { ...basePayload, AssignedTo: Number(sid) } },
-    { label: 'AssigneesInt', data: { ...basePayload, Assignees: [Number(sid)] } },
-    { label: 'StaffID', data: { ...basePayload, StaffID: Number(sid) } },
-    { label: 'AssignedToID', data: { ...basePayload, AssignedToID: Number(sid) } }
-  ];
-
   const out = [];
   for (const url of candidates) {
     // OPTIONS probe
@@ -280,24 +266,6 @@ export async function probeTaskCreate({ quoteId, staffId }) {
         data: e?.response?.data || null,
         message: e?.message || ''
       });
-    }
-
-    // POST probes (multiple payload shapes)
-    for (const p of payloads) {
-      try {
-        const res = await axiosInstance.post(url, p.data);
-        out.push({ url, method: 'POST', variant: p.label, status: res.status, ok: true, data: res.data });
-      } catch (e) {
-        out.push({
-          url,
-          method: 'POST',
-          variant: p.label,
-          status: e?.response?.status ?? null,
-          ok: false,
-          data: e?.response?.data || null,
-          message: e?.message || ''
-        });
-      }
     }
   }
   return out;
