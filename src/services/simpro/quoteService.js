@@ -140,10 +140,8 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
 
   const endpoints = [
     // These are confirmed to exist via our probe (GET 200) when using trailing slash.
-    `/companies/${companyId}/quotes/${encodeURIComponent(qid)}/tasks/`,
     `/companies/${companyId}/tasks/`,
-    // Keep a couple of fallbacks (some tenants expose only one or the other)
-    `/companies/${companyId}/tasks`
+    // Quote-scoped tasks are read-only in this tenant (OPTIONS shows no POST), so don't try to POST there.
   ];
 
   // Try a couple of common payload shapes to maximize compatibility.
@@ -152,20 +150,16 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
       // Preferred/most common Simpro-style fields
       Subject: subject,
       Description: description,
+      // Simpro expects YYYY-MM-DD (no time component)
       DueDate: dueDate,
-      Staff: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid }
-    },
-    {
-      Name: subject,
-      Notes: description,
-      DueDate: dueDate,
-      AssignedTo: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid }
+      // In this tenant, AssignedTo is an integer (not an object)
+      AssignedTo: Number(sid)
     },
     {
       Subject: subject,
       Notes: description,
       DueDate: dueDate,
-      Assignees: [{ ID: Number.isFinite(Number(sid)) ? Number(sid) : sid }]
+      AssignedTo: Number(sid)
     }
   ];
 
@@ -200,7 +194,7 @@ export async function createReviewTaskForQuote({
   const q = quote?.quote || quote?.Quote || quote?.quote || {};
   const quoteNumber = quote?.quoteNumber || q?.QuoteNo || q?.QuoteNumber || quoteId;
   const customerName = quote?.customerName || q?.Customer?.Name || q?.CustomerName || '';
-  const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // default: tomorrow (UTC)
+  const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // default: tomorrow (YYYY-MM-DD)
 
   const subject = `Quote review required: #${quoteNumber}`;
   const description =
