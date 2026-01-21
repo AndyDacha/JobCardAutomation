@@ -35,6 +35,53 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// Manual test endpoint: create a quote review task on demand
+// Body: { quoteId: "4306", assigneeStaffId: "10" }
+router.post('/create-review-task', async (req, res) => {
+  try {
+    const quoteId = req.body?.quoteId || req.body?.QuoteId || req.body?.quoteID;
+    const assigneeStaffId = req.body?.assigneeStaffId || req.body?.AssigneeStaffId || req.body?.staffId || req.body?.StaffId;
+    if (!quoteId) return res.status(400).json({ error: 'quoteId is required' });
+    if (!assigneeStaffId) return res.status(400).json({ error: 'assigneeStaffId is required' });
+
+    const triggerFieldId = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_ID || '';
+    const triggerFieldName = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_NAME || '';
+    const yesValue = process.env.QUOTE_TRIGGER_YES_VALUE || 'YES';
+
+    if (!triggerFieldId && !triggerFieldName) {
+      return res.status(400).json({ error: 'QUOTE_TRIGGER_CUSTOM_FIELD_ID or QUOTE_TRIGGER_CUSTOM_FIELD_NAME must be set' });
+    }
+
+    const quote = await getQuoteForAutomation(quoteId);
+    const match = quoteMatchesTrigger(quote?.customFields, { triggerFieldId, triggerFieldName, yesValue });
+    if (!match) {
+      return res.status(409).json({
+        error: 'Quote did not match trigger condition (custom field not YES)',
+        quoteId: String(quoteId),
+        triggerFieldId,
+        triggerFieldName,
+        yesValue,
+        customFields: quote?.customFields || []
+      });
+    }
+
+    const taskResult = await createReviewTaskForQuote({
+      quote,
+      quoteId,
+      assigneeStaffId: String(assigneeStaffId),
+      assigneeName: `Staff ${assigneeStaffId}`,
+      triggerFieldId,
+      triggerFieldName,
+      yesValue
+    });
+
+    return res.json({ success: true, quoteId: String(quoteId), assigneeStaffId: String(assigneeStaffId), taskResult });
+  } catch (e) {
+    logger.error('Error in create-review-task:', e);
+    return res.status(500).json({ error: 'Failed to create review task', details: e.message });
+  }
+});
+
 function extractQuoteId(webhookData) {
   return (
     webhookData?.reference?.quoteID ||
