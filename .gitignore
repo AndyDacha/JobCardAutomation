@@ -21,6 +21,7 @@ Job Cards/
 !Contact Us/**/*.png
 # Do not ignore Dacha logo assets used in PDF header
 !Dacha Logo/**/*.png
+!Dacha Logo/**/*.webp
 *.sh
 scripts/
 !README.md
