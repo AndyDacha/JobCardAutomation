@@ -384,20 +384,22 @@ export function generateHTMLv2(data) {
     .qr img { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto; }
     .qr .lbl { margin-top: 4px; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
 
-    .accreditations {
-      display: flex;
+    .badge-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      justify-content: space-between;
       align-items: center;
-      flex-wrap: nowrap;
+      justify-items: center;
       margin-top: 10px;
+      width: 100%;
     }
-    .accreditations img {
+    .badge-grid img {
       height: 52px;
       width: auto;
       object-fit: contain;
       background: transparent;
       display: block;
+      max-width: 100%;
     }
   </style>
 </head>
@@ -598,12 +600,12 @@ export function generateHTMLv2(data) {
         </div>
         ${(accreditationBadgesRow1.length > 0 || accreditationBadgesRow2.length > 0) ? `
           ${accreditationBadgesRow1.length > 0 ? `
-            <div class="accreditations">
+            <div class="badge-grid">
               ${accreditationBadgesRow1.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
             </div>
           ` : ''}
           ${accreditationBadgesRow2.length > 0 ? `
-            <div class="accreditations" style="margin-top: 8px;">
+            <div class="badge-grid" style="margin-top: 8px;">
               ${accreditationBadgesRow2.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
             </div>
           ` : ''}
