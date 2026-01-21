@@ -143,24 +143,35 @@ function readContactQrBase64() {
 
 function readAccreditationBadges() {
   const base = path.join(__dirname, '../../../Dacha Logo');
-  const files = [
+  const row1 = [
     { filename: 'ISO-9001-2015-badge-white.png', mime: 'image/png', alt: 'ISO 9001:2015' },
     { filename: 'ISO-14001-2015-badge-white.png', mime: 'image/png', alt: 'ISO 14001:2015' },
     { filename: 'ISO-27001-2013-badge-white.png', mime: 'image/png', alt: 'ISO 27001:2013' },
     { filename: 'ssaib-certified-full-cmyk-verify.webp', mime: 'image/webp', alt: 'SSAIB Certified' }
   ];
 
-  const out = [];
-  for (const f of files) {
-    try {
-      const p = path.join(base, f.filename);
-      if (!fs.existsSync(p)) continue;
-      out.push({ mime: f.mime, base64: fs.readFileSync(p).toString('base64'), alt: f.alt });
-    } catch (e) {
-      logger.warn(`Could not load accreditation badge ${f.filename}: ${e.message}`);
+  const row2 = [
+    { filename: 'Chas gold.png', mime: 'image/png', alt: 'CHAS Gold' },
+    { filename: 'Chas.webp', mime: 'image/webp', alt: 'CHAS' },
+    { filename: 'Cyber-Essentials-Badge-High-Res.png', mime: 'image/png', alt: 'Cyber Essentials' },
+    { filename: 'Seal-colour-SafeContractor-Sticker-1024x1024-1.webp', mime: 'image/webp', alt: 'SafeContractor' }
+  ];
+
+  const load = (files) => {
+    const out = [];
+    for (const f of files) {
+      try {
+        const p = path.join(base, f.filename);
+        if (!fs.existsSync(p)) continue;
+        out.push({ mime: f.mime, base64: fs.readFileSync(p).toString('base64'), alt: f.alt });
+      } catch (e) {
+        logger.warn(`Could not load badge ${f.filename}: ${e.message}`);
+      }
     }
-  }
-  return out;
+    return out;
+  };
+
+  return { row1: load(row1), row2: load(row2) };
 }
 
 function extractFirstEngineerId(engineers) {
@@ -217,7 +228,7 @@ function readSignatureData(employeeOrContractorId) {
 export function generateHTMLv2(data) {
   const logoBase64 = readLogoBase64();
   const contactQrBase64 = readContactQrBase64();
-  const accreditationBadges = readAccreditationBadges();
+  const { row1: accreditationBadgesRow1 = [], row2: accreditationBadgesRow2 = [] } = readAccreditationBadges() || {};
 
   const jobId = data?.job?.id ?? '';
   const jobNumber = data?.job?.jobNumber ?? jobId;
@@ -378,7 +389,7 @@ export function generateHTMLv2(data) {
       gap: 16px;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       margin-top: 10px;
     }
     .accreditations img {
@@ -585,10 +596,17 @@ export function generateHTMLv2(data) {
         <div class="fine">
           This job card confirms the works carried out during the visit. All works were completed in accordance with applicable standards and manufacturer guidance, and the system was left safe and operational at the time of departure. Where a customer signature is not obtained, this record shall be deemed accurate unless notification is received within 5 working days.
         </div>
-        ${accreditationBadges.length > 0 ? `
-          <div class="accreditations">
-            ${accreditationBadges.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
-          </div>
+        ${(accreditationBadgesRow1.length > 0 || accreditationBadgesRow2.length > 0) ? `
+          ${accreditationBadgesRow1.length > 0 ? `
+            <div class="accreditations">
+              ${accreditationBadgesRow1.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
+            </div>
+          ` : ''}
+          ${accreditationBadgesRow2.length > 0 ? `
+            <div class="accreditations" style="margin-top: 8px;">
+              ${accreditationBadgesRow2.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
+            </div>
+          ` : ''}
         ` : ''}
       </div>
     </div>
