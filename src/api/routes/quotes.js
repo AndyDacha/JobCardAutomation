@@ -288,9 +288,6 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
       webhookData?.Status?.Id ||
       null;
 
-    // Only run on explicit status change to Completed (ID 12)
-    if (Number(statusId) !== 12) return;
-
     const tagId = Number(process.env.MAINTENANCE_CONTRACT_TAG_ID || 256);
     const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
 
@@ -309,6 +306,12 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
       logger.warn(`Job ${jobId} completed webhook received but no CompletedDate found on job; skipping completion-day task.`);
       return;
     }
+
+    // If Simpro sends explicit statusID, respect it. Otherwise infer from job status name.
+    const statusName = String(raw?.Status?.Name || raw?.Status || link?.status || '').toLowerCase();
+    const isCompletedByStatusId = Number(statusId) === 12;
+    const isCompletedByName = statusName.includes('completed');
+    if (!isCompletedByStatusId && !isCompletedByName) return;
 
     const siteName = raw?.Site?.Name || raw?.SiteName || '';
     const customerName = raw?.Customer?.Name || raw?.CustomerName || '';
