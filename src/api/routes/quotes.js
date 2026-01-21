@@ -1,6 +1,6 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints } from '../../services/simpro/quoteService.js';
+import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate } from '../../services/simpro/quoteService.js';
 
 const router = express.Router();
 
@@ -245,6 +245,17 @@ router.get('/probe-task-endpoints/:quoteId/:staffId', async (req, res) => {
   } catch (e) {
     logger.error('Error in probe-task-endpoints:', e);
     res.status(500).json({ error: 'Failed to probe task endpoints', details: e.message });
+  }
+});
+
+router.get('/probe-task-create/:quoteId/:staffId', async (req, res) => {
+  try {
+    const { quoteId, staffId } = req.params;
+    const results = await probeTaskCreate({ quoteId, staffId });
+    res.json({ quoteId: String(quoteId), staffId: String(staffId), results });
+  } catch (e) {
+    logger.error('Error in probe-task-create:', e);
+    res.status(500).json({ error: 'Failed to probe task create', details: e.message });
   }
 });
 

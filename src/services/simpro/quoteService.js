@@ -247,3 +247,55 @@ export async function probeTaskEndpoints({ quoteId, staffId }) {
   return results;
 }
 
+export async function probeTaskCreate({ quoteId, staffId }) {
+  const qid = encodeURIComponent(String(quoteId));
+  const sid = String(staffId);
+
+  const candidates = [
+    `/companies/${companyId}/tasks/`,
+    `/companies/${companyId}/quotes/${qid}/tasks/`
+  ];
+
+  const payload = {
+    Subject: `Probe task create (quote ${quoteId})`,
+    Description: 'Probe created by automation service to confirm task creation endpoint.',
+    DueDate: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    Staff: { ID: Number(sid) }
+  };
+
+  const out = [];
+  for (const url of candidates) {
+    // OPTIONS probe
+    try {
+      const opt = await axiosInstance.request({ method: 'options', url });
+      out.push({ url, method: 'OPTIONS', status: opt.status, ok: true, allow: opt.headers?.allow || '' });
+    } catch (e) {
+      out.push({
+        url,
+        method: 'OPTIONS',
+        status: e?.response?.status ?? null,
+        ok: false,
+        allow: e?.response?.headers?.allow || '',
+        data: e?.response?.data || null,
+        message: e?.message || ''
+      });
+    }
+
+    // POST probe
+    try {
+      const res = await axiosInstance.post(url, payload);
+      out.push({ url, method: 'POST', status: res.status, ok: true, data: res.data });
+    } catch (e) {
+      out.push({
+        url,
+        method: 'POST',
+        status: e?.response?.status ?? null,
+        ok: false,
+        data: e?.response?.data || null,
+        message: e?.message || ''
+      });
+    }
+  }
+  return out;
+}
+
