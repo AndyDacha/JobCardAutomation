@@ -375,14 +375,14 @@ export function generateHTMLv2(data) {
 
     .accreditations {
       display: flex;
-      gap: 12px;
+      gap: 16px;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       margin-top: 10px;
     }
     .accreditations img {
-      height: 34px;
+      height: 52px;
       width: auto;
       object-fit: contain;
       background: transparent;
