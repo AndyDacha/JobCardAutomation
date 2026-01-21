@@ -86,7 +86,7 @@ router.post('/create-completion-task/:jobId', async (req, res) => {
 
     const siteName = raw?.Site?.Name || '';
     const customerName = raw?.Customer?.Name || '';
-    const subject = `Maintenance Contract Started - Job #${link?.jobNumber || jobId}`;
+    const subject = 'Job Completed – Maintenance Contract Activated & Renewal Alerts Scheduled';
 
     if (dryRun) {
       return res.json({ dryRun: true, jobId: String(jobId), subject, dueDate: completedDate, assignedToId });

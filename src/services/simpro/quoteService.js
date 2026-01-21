@@ -47,11 +47,9 @@ async function tryGetJson(urls) {
 export async function getJobLinkInfo(jobId) {
   const jid = encodeURIComponent(String(jobId));
 
-  // Try a few likely column sets to surface quote linkage without relying on APIDoc.
+  // In this tenant, some `?columns=` queries intermittently return 422. Prefer the full job fetch first.
   const urls = [
-    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,JobNumber,Quote,QuoteNo,QuoteID,Customer,Site,Status,DateModified,CompletedDate,DateCompleted,Tags`,
-    `/companies/${companyId}/jobs/${jid}?columns=ID,JobNo,Quote,Customer,Site,Status,CompletedDate,DateCompleted,Tags`,
-    `/companies/${companyId}/jobs/${jid}` // fallback (full default)
+    `/companies/${companyId}/jobs/${jid}`
   ];
 
   const job = await tryGetJson(urls);
