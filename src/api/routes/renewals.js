@@ -1,6 +1,6 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { runRenewalRunner, searchTasksBySubject } from '../../services/simpro/renewalService.js';
+import { runRenewalRunner, searchTasksBySubject, listRecentTasks } from '../../services/simpro/renewalService.js';
 
 const router = express.Router();
 
@@ -38,6 +38,22 @@ router.get('/find-task', async (req, res) => {
   } catch (e) {
     logger.error('Error searching tasks:', e);
     res.status(500).json({ error: 'Failed to search tasks', details: e.message });
+  }
+});
+
+router.get('/recent-tasks', async (req, res) => {
+  try {
+    const pageSize = Number(req.query?.pageSize ?? 200);
+    const page = Number(req.query?.page ?? 1);
+    const contains = String(req.query?.contains || '').trim().toLowerCase();
+    const tasks = await listRecentTasks({ pageSize, page });
+    const filtered = contains
+      ? tasks.filter((t) => String(t?.Subject || '').toLowerCase().includes(contains))
+      : tasks;
+    res.json({ pageSize, page, count: filtered.length, tasks: filtered.slice(0, 200) });
+  } catch (e) {
+    logger.error('Error fetching recent tasks:', e);
+    res.status(500).json({ error: 'Failed to fetch recent tasks', details: e.message });
   }
 });
 

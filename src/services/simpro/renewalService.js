@@ -98,6 +98,12 @@ export async function searchTasksBySubject(subject) {
   return [];
 }
 
+export async function listRecentTasks({ pageSize = 200, page = 1 } = {}) {
+  const url = `/companies/${companyId}/tasks/?pageSize=${Number(pageSize)}&page=${Number(page)}&columns=ID,Subject,DueDate,AssignedTo,DateModified,Status`;
+  const res = await requestWithRetry('get', url);
+  return normalizeList(res.data);
+}
+
 async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId }) {
   const url = `/companies/${companyId}/tasks/`;
   const payload = {
