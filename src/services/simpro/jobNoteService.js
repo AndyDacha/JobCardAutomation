@@ -67,20 +67,14 @@ export async function probeCreateJobNote(jobId, noteText) {
   return { url, results };
 }
 
-export async function createJobNote(jobId, noteText, payloadLabelPreference = ['Notes', 'Note', 'Text', 'Description']) {
-  const probe = await probeCreateJobNote(jobId, noteText);
-  const successes = probe.results.filter((r) => r.method === 'POST' && r.ok);
-  if (successes.length === 0) {
-    const last = probe.results.filter((r) => r.method === 'POST' && !r.ok).slice(-1)[0];
-    const msg = last?.data ? JSON.stringify(last.data) : last?.error || 'Unknown error';
-    throw new Error(`Could not create job note. Last error: ${msg}`);
-  }
+export async function createJobNote(jobId, noteText) {
+  const jid = encodeURIComponent(String(jobId));
+  const url = `/companies/${companyId}/jobs/${jid}/notes/`;
+  const text = String(noteText || '').trim();
+  if (!text) throw new Error('Note text is empty');
 
-  // Prefer a stable label if multiple succeed
-  for (const pref of payloadLabelPreference) {
-    const hit = successes.find((s) => s.label === pref);
-    if (hit) return hit.data;
-  }
-  return successes[0].data;
+  // Discovered in this tenant: the accepted payload is { Note: "..." }
+  const res = await requestWithRetry('post', url, { Note: text }, 2);
+  return res.data;
 }
 

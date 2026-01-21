@@ -20,12 +20,12 @@ function normalizeList(raw) {
   return raw ? [raw] : [];
 }
 
-function toDateOnlyString(d) {
+export function toDateOnlyString(d) {
   // YYYY-MM-DD in UTC
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0, 10);
 }
 
-function parseDateOnly(s) {
+export function parseDateOnly(s) {
   if (!s) return null;
   const str = String(s).trim();
   // Accept YYYY-MM-DD, or full ISO; convert to Date.
@@ -34,7 +34,7 @@ function parseDateOnly(s) {
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
-function addMonthsUtc(date, months) {
+export function addMonthsUtc(date, months) {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth();

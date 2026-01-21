@@ -2,8 +2,8 @@ import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
-import { ensureCompletionDayTask } from '../../services/simpro/renewalService.js';
-import { probeCreateJobNote } from '../../services/simpro/jobNoteService.js';
+import { ensureCompletionDayTask, addMonthsUtc, parseDateOnly, toDateOnlyString } from '../../services/simpro/renewalService.js';
+import { createJobNote } from '../../services/simpro/jobNoteService.js';
 
 const router = express.Router();
 
@@ -274,6 +274,19 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
 
     const result = await ensureJobHasTag({ jobId, tagId });
     logger.info(`Maintenance tag ensured on job ${jobId} (tag ${tagId}). alreadyPresent=${result.alreadyPresent}`);
+
+    // Audit note on conversion/tagging
+    if (!result.alreadyPresent) {
+      const note =
+        `[Maintenance Contract Automation]\n` +
+        `Maintenance contract included (Quote CF73 = Yes).\n` +
+        `Applied job tag: Maintenance Contract (Tag ID ${tagId}).`;
+      try {
+        await createJobNote(jobId, note);
+      } catch (e) {
+        logger.warn(`Could not create maintenance audit note for job ${jobId}: ${e.message}`);
+      }
+    }
   } catch (e) {
     logger.error(`Error applying maintenance tag to job ${jobId}:`, e?.response?.data || e.message || e);
   }
@@ -327,6 +340,32 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
     });
 
     logger.info(`Completion-day maintenance task for job ${jobId}: created=${res.created} subject="${res.subject}"`);
+
+    // Audit note with schedule visibility
+    if (res.created) {
+      const start = parseDateOnly(completedDateYYYYMMDD);
+      const renewalDue = start ? addMonthsUtc(start, 12) : null;
+      const renewalDueStr = renewalDue ? toDateOnlyString(renewalDue) : '';
+      const r3 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -3)) : '';
+      const r2 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -2)) : '';
+      const r1 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -1)) : '';
+
+      const note =
+        `[Maintenance Contract Automation]\n` +
+        `Job completed (Status 12). Maintenance Start Date set to: ${completedDateYYYYMMDD}\n` +
+        (renewalDueStr ? `Renewal Due Date (Start + 12 months): ${renewalDueStr}\n` : '') +
+        `Renewal reminder tasks will be created by the daily runner on:\n` +
+        (r3 ? `- T-3 months: ${r3}\n` : '') +
+        (r2 ? `- T-2 months: ${r2}\n` : '') +
+        (r1 ? `- T-1 month: ${r1}\n` : '') +
+        `Note: Simpro task notifications will email the assignee when each reminder task is created.`;
+
+      try {
+        await createJobNote(jobId, note);
+      } catch (e) {
+        logger.warn(`Could not create completion audit note for job ${jobId}: ${e.message}`);
+      }
+    }
   } catch (e) {
     logger.error(`Error creating completion-day maintenance task for job ${jobId}:`, e?.response?.data || e.message || e);
   }
