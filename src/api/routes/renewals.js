@@ -19,8 +19,9 @@ router.post('/run', async (req, res) => {
     const dryRun = String(req.query?.dryRun ?? 'true').toLowerCase() !== 'false';
     const tagId = Number(req.query?.tagId ?? 256);
     const assignedToId = Number(req.query?.assignedToId ?? 12);
+    const includeExpiryReminder = String(req.query?.includeExpiryReminder ?? 'false').toLowerCase() === 'true';
 
-    const result = await runRenewalRunner({ tagId, assignedToId, dryRun });
+    const result = await runRenewalRunner({ tagId, assignedToId, dryRun, includeExpiryReminder });
     res.json(result);
   } catch (e) {
     logger.error('Error running renewal runner:', e);

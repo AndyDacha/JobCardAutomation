@@ -61,6 +61,76 @@ async function requestWithRetry(method, url, data = undefined, maxRetries = 3) {
   }
 }
 
+function renderTemplate(tpl, vars) {
+  return String(tpl || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, key) => {
+    const k = String(key || '').trim();
+    const v = vars?.[k];
+    return (v === null || v === undefined) ? '' : String(v);
+  });
+}
+
+function buildReminderTemplates({ monthsBefore, includeExpiry = false } = {}) {
+  if (includeExpiry) {
+    return {
+      subject: 'Maintenance Contract Expired – Coverage Status Update',
+      body:
+        'Hello {{Customer Name}},\n\n' +
+        'We’re writing to confirm that the maintenance contract for {{Site Name}} expired on {{Renewal Date}}.\n\n' +
+        'At present, no renewal has been confirmed and the system is no longer covered under an active maintenance agreement.\n\n' +
+        'If you would like to reinstate maintenance coverage or discuss options, please contact us and we’ll be happy to assist.\n\n' +
+        'Kind regards,\n' +
+        'Dacha SSI Limited\n'
+    };
+  }
+
+  if (monthsBefore === 3) {
+    return {
+      subject: 'Upcoming Maintenance Renewal – Advance Notice',
+      body:
+        'Hello {{Customer Name}},\n\n' +
+        'We’re writing to let you know that the 12-month maintenance period for your system installed under Job {{Job Number}} at {{Site Name}} is due to expire on {{Renewal Date}}.\n\n' +
+        'Your first year of maintenance was included as part of your original installation. We’re now providing advance notice so you have plenty of time to review renewal options for Year 2.\n\n' +
+        'Annual Maintenance Cost: £{{Maintenance Value}}\n' +
+        'Coverage Period: {{Renewal Date}} – {{Renewal Date + 12 months}}\n\n' +
+        'We’ll be in touch again closer to the renewal date, but please feel free to contact us if you’d like to proceed sooner or have any questions.\n\n' +
+        'Kind regards,\n' +
+        'Dacha SSI Limited\n'
+    };
+  }
+
+  if (monthsBefore === 2) {
+    return {
+      subject: 'Maintenance Contract Renewal – Action Required Soon',
+      body:
+        'Hello {{Customer Name}},\n\n' +
+        'This is a reminder that the maintenance contract for your system at {{Site Name}} is due for renewal on {{Renewal Date}}.\n\n' +
+        'Renewing your maintenance ensures:\n\n' +
+        'Continued system support\n' +
+        'Priority response\n' +
+        'Ongoing compliance and performance checks\n\n' +
+        'Annual Maintenance Cost: £{{Maintenance Value}}\n' +
+        'Renewal Date: {{Renewal Date}}\n\n' +
+        'If you would like to renew, please reply to this email and we will arrange the renewal documentation.\n\n' +
+        'Kind regards,\n' +
+        'Dacha SSI Limited\n'
+    };
+  }
+
+  // default: 1 month
+  return {
+    subject: 'Final Reminder – Maintenance Contract Renewal Due',
+    body:
+      'Hello {{Customer Name}},\n\n' +
+      'Your maintenance contract for {{Site Name}} will expire on {{Renewal Date}}.\n\n' +
+      'To avoid any lapse in support or maintenance coverage, please confirm whether you wish to proceed with renewal.\n\n' +
+      'Annual Maintenance Cost: £{{Maintenance Value}}\n\n' +
+      'If we do not hear from you before the renewal date, maintenance coverage may lapse.\n\n' +
+      'Please reply to this email or contact us if you would like to proceed.\n\n' +
+      'Kind regards,\n' +
+      'Dacha SSI Limited\n'
+  };
+}
+
 export async function listMaintenanceJobs({ tagId = 256, pageSize = 250, maxPages = 20 } = {}) {
   const items = [];
   for (let page = 1; page <= maxPages; page++) {
@@ -191,22 +261,34 @@ export async function ensureRenewalTask({
   customerName,
   dueDateYYYYMMDD,
   monthsBefore,
-  assignedToId
+  assignedToId,
+  maintenanceValue = 'TBC',
+  renewalDueYYYYMMDD = '',
+  renewalEndYYYYMMDD = ''
 }) {
-  const subject = `Maintenance Renewal Reminder (T-${monthsBefore}m) - Job #${jobNumber || jobId}`;
+  const { subject: subjectTpl, body: bodyTpl } = buildReminderTemplates({ monthsBefore });
+  const subject = subjectTpl;
 
   // Idempotency: if a task with same subject exists, skip.
   const existing = await searchTasksBySubject(subject);
   const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
   if (already) return { created: false, subject };
 
+  const vars = {
+    'Customer Name': customerName || 'Customer',
+    'Job Number': jobNumber || jobId,
+    'Site Name': siteName || '',
+    'Renewal Date': renewalDueYYYYMMDD || '',
+    'Renewal Date + 12 months': renewalEndYYYYMMDD || '',
+    'Maintenance Value': maintenanceValue || 'TBC'
+  };
+  const emailBody = renderTemplate(bodyTpl, vars);
   const description =
-    `Renewal reminder for maintenance contract.\n` +
+    `COPY/PASTE EMAIL TEMPLATE:\n\n${emailBody}\n` +
+    `---\n` +
+    `Internal:\n` +
     `Job ID: ${jobId}\n` +
-    `Job Number: ${jobNumber || jobId}\n` +
-    (siteName ? `Site: ${siteName}\n` : '') +
-    (customerName ? `Customer: ${customerName}\n` : '') +
-    `Reminder: ${monthsBefore} month(s) before renewal due.\n`;
+    `Reminder schedule: T-${monthsBefore} months\n`;
 
   const task = await createTask({
     subject,
@@ -222,7 +304,8 @@ export async function runRenewalRunner({
   tagId = 256,
   assignedToId = 12,
   today = new Date(),
-  dryRun = true
+  dryRun = true,
+  includeExpiryReminder = false
 } = {}) {
   const jobs = await listMaintenanceJobs({ tagId });
   const todayStr = toDateOnlyString(today);
@@ -238,11 +321,16 @@ export async function runRenewalRunner({
     if (statusName && !statusName.includes('completed')) continue;
 
     const renewalDue = addMonthsUtc(completed, 12);
+    const renewalDueStr = toDateOnlyString(renewalDue);
+    const renewalEndStr = toDateOnlyString(addMonthsUtc(renewalDue, 12));
     const reminderDates = [
       { monthsBefore: 3, date: addMonthsUtc(renewalDue, -3) },
       { monthsBefore: 2, date: addMonthsUtc(renewalDue, -2) },
       { monthsBefore: 1, date: addMonthsUtc(renewalDue, -1) }
     ];
+    if (includeExpiryReminder) {
+      reminderDates.push({ monthsBefore: 0, date: renewalDue, expiry: true });
+    }
 
     const jobId = job?.ID || job?.Id || job?.id;
     const jobNumber = job?.JobNo || job?.JobNumber || jobId;
@@ -251,11 +339,34 @@ export async function runRenewalRunner({
 
     for (const r of reminderDates) {
       const dueStr = toDateOnlyString(r.date);
-      considered.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr });
+      considered.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, expiry: !!r.expiry });
       if (dueStr !== todayStr) continue;
 
       if (dryRun) {
-        created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, created: false, dryRun: true });
+        created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, created: false, dryRun: true, expiry: !!r.expiry });
+        continue;
+      }
+
+      if (r.expiry) {
+        const tpl = buildReminderTemplates({ includeExpiry: true });
+        const subject = tpl.subject;
+        const vars = {
+          'Customer Name': customerName || 'Customer',
+          'Job Number': jobNumber || jobId,
+          'Site Name': siteName || '',
+          'Renewal Date': renewalDueStr
+        };
+        const description =
+          `COPY/PASTE EMAIL TEMPLATE:\n\n${renderTemplate(tpl.body, vars)}\n` +
+          `---\nInternal:\nJob ID: ${jobId}\nReminder: Expiry/Lapsed\n`;
+        const existing = await searchTasksBySubject(subject);
+        const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
+        if (!already) {
+          const task = await createTask({ subject, description, dueDateYYYYMMDD: dueStr, assignedToId, jobId });
+          created.push({ jobId, jobNumber, monthsBefore: 0, dueDate: dueStr, created: true, subject, taskId: task?.ID || null, expiry: true });
+        } else {
+          created.push({ jobId, jobNumber, monthsBefore: 0, dueDate: dueStr, created: false, subject, expiry: true });
+        }
         continue;
       }
 
@@ -266,9 +377,12 @@ export async function runRenewalRunner({
         customerName,
         dueDateYYYYMMDD: dueStr,
         monthsBefore: r.monthsBefore,
-        assignedToId
+        assignedToId,
+        maintenanceValue: 'TBC',
+        renewalDueYYYYMMDD: renewalDueStr,
+        renewalEndYYYYMMDD: renewalEndStr
       });
-      created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, ...res });
+      created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, ...res, expiry: false });
     }
   }
 
