@@ -18,6 +18,16 @@ async function tryGet(url) {
   return res.data;
 }
 
+async function tryOptions(url) {
+  const res = await axiosInstance.request({ method: 'options', url });
+  return res;
+}
+
+async function trySearch(url, data) {
+  const res = await axiosInstance.request({ method: 'search', url, data });
+  return res.data;
+}
+
 function normalizeList(raw) {
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw?.Items)) return raw.Items;
@@ -44,6 +54,9 @@ export async function findJobTagByName(tagName) {
     // Project Tags (often used for Jobs/Projects)
     `/companies/${companyId}/projects/tags/`,
     `/companies/${companyId}/projects/tags`,
+    // APIDoc hint: sometimes named "projectTags"
+    `/companies/${companyId}/projectTags/`,
+    `/companies/${companyId}/projectTags`,
     `/companies/${companyId}/tags/`,
     `/companies/${companyId}/tags`,
     `/companies/${companyId}/setup/tags/`,
@@ -55,10 +68,39 @@ export async function findJobTagByName(tagName) {
   let lastErr = null;
   for (const url of candidates) {
     try {
-      const data = await tryGet(url);
+      // Prefer SEARCH if the endpoint supports it (Simpro uses SEARCH for some resources)
+      let allow = '';
+      try {
+        const opt = await tryOptions(url);
+        allow = String(opt?.headers?.allow || '');
+      } catch {
+        // ignore
+      }
+
+      let data = null;
+      if (allow.toUpperCase().includes('SEARCH')) {
+        // Try common SEARCH payload shapes. If filters aren't supported, a bare SEARCH may return the list.
+        const payloads = [
+          { SearchTerm: tagName },
+          { Filters: [{ Field: 'Name', Operator: 'eq', Value: tagName }] },
+          { filters: [{ field: 'Name', operator: 'eq', value: tagName }] },
+          {}
+        ];
+        for (const p of payloads) {
+          try {
+            data = await trySearch(url, p);
+            break;
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+      } else {
+        data = await tryGet(url);
+      }
+
       const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
       const hit = items.find((x) => x.name.trim().toLowerCase() === target);
-      if (hit) return { ...hit, sourceUrl: url, count: items.length };
+      if (hit) return { ...hit, sourceUrl: url, count: items.length, allow };
     } catch (e) {
       lastErr = e;
     }
@@ -77,18 +119,37 @@ export async function listJobTags() {
     `/companies/${companyId}/jobs/tags`,
     `/companies/${companyId}/projects/tags/`,
     `/companies/${companyId}/projects/tags`,
+    `/companies/${companyId}/projectTags/`,
+    `/companies/${companyId}/projectTags`,
     `/companies/${companyId}/tags/`,
     `/companies/${companyId}/tags`
   ];
   for (const url of candidates) {
     try {
-      const data = await tryGet(url);
+      let data = null;
+      let allow = '';
+      try {
+        const opt = await tryOptions(url);
+        allow = String(opt?.headers?.allow || '');
+      } catch {
+        // ignore
+      }
+
+      if (allow.toUpperCase().includes('SEARCH')) {
+        try {
+          data = await trySearch(url, {});
+        } catch {
+          data = await tryGet(url);
+        }
+      } else {
+        data = await tryGet(url);
+      }
       const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
-      if (items.length > 0) return { sourceUrl: url, items };
+      if (items.length > 0) return { sourceUrl: url, allow, items };
     } catch {
       // continue probing
     }
   }
-  return { sourceUrl: null, items: [] };
+  return { sourceUrl: null, allow: '', items: [] };
 }
 
