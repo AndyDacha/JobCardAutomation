@@ -6,6 +6,7 @@ import logger from './utils/logger.js';
 import jobCardsRouter from './api/routes/jobCards.js';
 import quotesRouter from './api/routes/quotes.js';
 import renewalsRouter from './api/routes/renewals.js';
+import tasksDebugRouter from './api/routes/tasksDebug.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +33,9 @@ app.use('/api/quotes', quotesRouter);
 
 // Renewal runner routes (intended for scheduled execution)
 app.use('/api/renewals', renewalsRouter);
+
+// Debug routes for task/job association probing
+app.use('/api/tasks-debug', tasksDebugRouter);
 
 // Log all incoming requests for debugging
 app.use((req, res, next) => {

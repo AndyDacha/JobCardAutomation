@@ -116,6 +116,33 @@ async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId 
   return res.data;
 }
 
+export async function probeCreateTaskJobAssociation({ jobId, subjectBase = 'Probe Task Job Association', assignedToId = 12 }) {
+  const url = `/companies/${companyId}/tasks/`;
+  const due = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const jid = Number(jobId);
+
+  const variants = [
+    { label: 'JobID', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), JobID: jid } },
+    { label: 'JobId', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), JobId: jid } },
+    { label: 'Job', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), Job: jid } },
+    { label: 'JobObject', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), Job: { ID: jid } } },
+    { label: 'AssociatedJob', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), Associated: { Job: { ID: jid } } } },
+    { label: 'ProjectID', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), ProjectID: jid } },
+    { label: 'Project', payload: { Subject: subjectBase, DueDate: due, AssignedTo: Number(assignedToId), Project: { ID: jid } } }
+  ];
+
+  const results = [];
+  for (const v of variants) {
+    try {
+      const res = await requestWithRetry('post', url, v.payload, 1);
+      results.push({ label: v.label, ok: true, status: res.status, data: res.data });
+    } catch (e) {
+      results.push({ label: v.label, ok: false, status: e?.response?.status ?? null, data: e?.response?.data || null, error: e?.message || '' });
+    }
+  }
+  return results;
+}
+
 export async function ensureCompletionDayTask({
   jobId,
   jobNumber,
