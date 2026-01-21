@@ -562,7 +562,7 @@ export function generateHTMLv2(data) {
             `).join('')}
           </div>
           ${photos.length > 9 ? `<div class="fine" style="margin-top:8px;">Showing first 9 photos (PDF size control). Total photos available: ${escapeHtml(String(photos.length))}.</div>` : ''}
-        ` : `<div class="fine">No photos available for this Job.</div>`}
+        ` : `<div class="fine">No photographic evidence was captured at the time of attendance.</div>`}
       </div>
     </div>
 
