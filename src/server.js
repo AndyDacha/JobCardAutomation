@@ -25,6 +25,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Build/status info (helps confirm Railway is running the expected commit)
+app.get('/api/status', (req, res) => {
+  res.json({
+    ok: true,
+    now: new Date().toISOString(),
+    commit:
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.GIT_COMMIT ||
+      process.env.COMMIT_SHA ||
+      null,
+    service: 'JobCardAutomation'
+  });
+});
+
 // Job cards routes
 app.use('/api/job-cards', jobCardsRouter);
 
