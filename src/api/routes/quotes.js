@@ -13,6 +13,7 @@ let lastQuoteWebhook = null;
 let lastQuoteWebhookAt = null;
 let quoteWebhookCount = 0;
 const createdManualTasks = new Set();
+const processedCompletionJobs = new Set(); // in-memory guard to prevent duplicate completion task creation
 
 router.get('/webhook', (req, res) => {
   res.json({
@@ -302,6 +303,10 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
       webhookData?.Status?.Id ||
       null;
 
+    // HARD GUARD: only create completion-day task on explicit status change to Completed (ID 12).
+    // This prevents spam on repeated job.updated events after completion.
+    if (Number(statusId) !== 12) return;
+
     const tagId = Number(process.env.MAINTENANCE_CONTRACT_TAG_ID || 256);
     const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
 
@@ -321,11 +326,11 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
       return;
     }
 
-    // If Simpro sends explicit statusID, respect it. Otherwise infer from job status name.
-    const statusName = String(raw?.Status?.Name || raw?.Status || link?.status || '').toLowerCase();
-    const isCompletedByStatusId = Number(statusId) === 12;
-    const isCompletedByName = statusName.includes('completed');
-    if (!isCompletedByStatusId && !isCompletedByName) return;
+    // Extra idempotency guard (handles duplicate status webhooks)
+    const completionKey = `${jobId}:${completedDateYYYYMMDD}:status12`;
+    if (processedCompletionJobs.has(completionKey)) return;
+    processedCompletionJobs.add(completionKey);
+    if (processedCompletionJobs.size > 5000) processedCompletionJobs.clear();
 
     const siteName = raw?.Site?.Name || raw?.SiteName || '';
     const customerName = raw?.Customer?.Name || raw?.CustomerName || '';
