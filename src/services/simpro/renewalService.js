@@ -190,7 +190,7 @@ async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId,
   return res.data;
 }
 
-export async function probeCreateTaskJobAssociation({ jobId, subjectBase = 'Probe Task Job Association', assignedToId = 12 }) {
+export async function probeCreateTaskJobAssociation({ jobId, subjectBase = 'Probe Task Job Association', assignedToId = 10 }) {
   const url = `/companies/${companyId}/tasks/`;
   const due = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const jid = Number(jobId);
@@ -223,7 +223,7 @@ export async function ensureCompletionDayTask({
   siteName,
   customerName,
   completedDateYYYYMMDD,
-  assignedToId = 12,
+  assignedToId = 10,
   maintenanceValue = 'TBC'
 }) {
   // IMPORTANT: include Job # in subject so de-dupe is per job (not global across all jobs).
@@ -340,7 +340,7 @@ export async function ensureRenewalTask({
 
 export async function runRenewalRunner({
   tagId = 256,
-  assignedToId = 12,
+  assignedToId = 10,
   today = new Date(),
   dryRun = true,
   includeExpiryReminder = false
