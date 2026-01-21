@@ -246,34 +246,38 @@ export async function ensureCompletionDayTask({
     'Site Name': siteName || '',
     'Job Completion Date': completedDateYYYYMMDD || '',
     'Renewal Date': renewalDueStr || '',
-    'Maintenance Value': maintenanceValue || 'TBC'
+    'Maintenance Value': maintenanceValue || 'TBC',
+    'Reminder T-3 Date': r3 || '',
+    'Reminder T-2 Date': r2 || '',
+    'Reminder T-1 Date': r1 || ''
   };
 
+  // Use HTML formatting for readability inside Simpro task UI.
   const description = renderTemplate(
-    'Hello Team,\n\n' +
-      'Please note that Job {{Job Number}} has now been marked as Completed.\n\n' +
-      'This job includes an annual maintenance contract, which has now been activated as of the job completion date.\n\n' +
-      'Maintenance Contract Details\n\n' +
-      'Customer: {{Customer Name}}\n\n' +
-      'Site: {{Site Name}}\n\n' +
-      'Maintenance Start Date: {{Job Completion Date}}\n\n' +
-      'Maintenance End Date: {{Renewal Date}}\n\n' +
-      'Annual Maintenance Value: £{{Maintenance Value}}\n\n' +
-      'Year 1 Status: Included with installation (100% discounted)\n\n' +
-      'Automation Status\n\n' +
-      'The following automated renewal reminders have been successfully scheduled:\n\n' +
-      '3 months before expiry\n\n' +
-      '2 months before expiry\n\n' +
-      '1 month before expiry\n\n' +
-      'No further action is required at this stage unless changes are needed to the maintenance value or customer contact details.\n\n' +
-      'If any discrepancies are identified, please update the job or contract record accordingly.\n\n' +
-      'Regards,\n' +
-      'Dacha SSI – Automation Notification\n\n' +
-      '---\n' +
-      'Internal schedule dates (for audit):\n' +
-      (r3 ? `T-3 months task creation date: ${r3}\n` : '') +
-      (r2 ? `T-2 months task creation date: ${r2}\n` : '') +
-      (r1 ? `T-1 month task creation date: ${r1}\n` : ''),
+    `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4;">` +
+      `<p>Hello Team,</p>` +
+      `<p><strong>Job {{Job Number}}</strong> has been marked as <strong>Completed</strong>.</p>` +
+      `<p>This job includes an annual maintenance contract, which is now active from the job completion date.</p>` +
+      `<hr/>` +
+      `<p><strong>Maintenance Contract Details</strong><br/>` +
+      `Customer: {{Customer Name}}<br/>` +
+      `Site: {{Site Name}}<br/>` +
+      `Maintenance Start Date: {{Job Completion Date}}<br/>` +
+      `Maintenance End Date (Renewal Due): {{Renewal Date}}<br/>` +
+      `Annual Maintenance Value: £{{Maintenance Value}}<br/>` +
+      `Year 1 Status: Included with installation (100% discounted)</p>` +
+      `<hr/>` +
+      `<p><strong>Automation Status</strong><br/>` +
+      `Renewal reminder tasks will be created by the daily runner on:<br/>` +
+      `- T-3 months: {{Reminder T-3 Date}}<br/>` +
+      `- T-2 months: {{Reminder T-2 Date}}<br/>` +
+      `- T-1 month: {{Reminder T-1 Date}}` +
+      `</p>` +
+      `<p>No further action is required unless changes are needed to the maintenance value or customer contact details.</p>` +
+      `<p>Regards,<br/>Dacha SSI – Automation Notification</p>` +
+      `<p style="color:#666; font-size: 9pt; margin-top: 12px;"><strong>Internal (audit)</strong><br/>` +
+      `Reminder schedule: T-3 / T-2 / T-1 months before renewal due date</p>` +
+    `</div>`,
     vars
   );
 

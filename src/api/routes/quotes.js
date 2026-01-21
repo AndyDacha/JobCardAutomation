@@ -280,8 +280,11 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
     if (!result.alreadyPresent) {
       const note =
         `[Maintenance Contract Automation]\n` +
-        `Maintenance contract included (Quote CF73 = Yes).\n` +
-        `Applied job tag: Maintenance Contract (Tag ID ${tagId}).`;
+        `Event: Quote converted to Job (maintenance flagged)\n` +
+        `Trigger: Quote CF73 = Yes\n` +
+        `\n` +
+        `Action taken:\n` +
+        `- Applied job tag: Maintenance Contract (Tag ID ${tagId})\n`;
       try {
         await createJobNoteOnce(jobId, note, `[MC_AUTOMATION:CONVERSION_TAG_APPLIED:${tagId}]`);
       } catch (e) {
@@ -357,13 +360,18 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
 
       const note =
         `[Maintenance Contract Automation]\n` +
-        `Job completed (Status 12). Maintenance Start Date set to: ${completedDateYYYYMMDD}\n` +
-        (renewalDueStr ? `Renewal Due Date (Start + 12 months): ${renewalDueStr}\n` : '') +
-        `Renewal reminder tasks will be created by the daily runner on:\n` +
+        `Event: Job completed (Status 12)\n` +
+        `\n` +
+        `Maintenance dates:\n` +
+        `- Maintenance Start Date: ${completedDateYYYYMMDD}\n` +
+        (renewalDueStr ? `- Renewal Due Date (Start + 12 months): ${renewalDueStr}\n` : '') +
+        `\n` +
+        `Renewal reminders (created by daily runner):\n` +
         (r3 ? `- T-3 months: ${r3}\n` : '') +
         (r2 ? `- T-2 months: ${r2}\n` : '') +
         (r1 ? `- T-1 month: ${r1}\n` : '') +
-        `Note: Simpro task notifications will email the assignee when each reminder task is created.`;
+        `\n` +
+        `Note: Simpro task notifications will email the assignee when each reminder task is created.\n`;
 
       try {
         await createJobNoteOnce(jobId, note, `[MC_AUTOMATION:COMPLETION_SCHEDULE:${completedDateYYYYMMDD}]`);

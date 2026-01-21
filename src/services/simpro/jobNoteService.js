@@ -109,7 +109,8 @@ export async function createJobNoteOnce(jobId, noteText, uniqueKey) {
   });
   if (already) return { created: false, key };
 
-  await createJobNote(jobId, `${noteText}\n\n${key}`);
+  // Keep the unique key for idempotency, but present it in a more human-friendly way.
+  await createJobNote(jobId, `${noteText}\n\nAutomation Key: ${key}`);
   return { created: true, key };
 }
 
