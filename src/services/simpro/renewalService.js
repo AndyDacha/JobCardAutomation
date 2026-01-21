@@ -226,10 +226,8 @@ export async function ensureCompletionDayTask({
   assignedToId = 12,
   maintenanceValue = 'TBC'
 }) {
-  const subject = renderTemplate(
-    'Job Completed – Maintenance Contract Activated & Renewal Alerts Scheduled',
-    { 'Job Number': jobNumber || jobId }
-  );
+  // IMPORTANT: include Job # in subject so de-dupe is per job (not global across all jobs).
+  const subject = `Job Completed – Maintenance Contract Activated & Renewal Alerts Scheduled - Job #${jobNumber || jobId}`;
 
   const existing = await searchTasksBySubject(subject);
   const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
@@ -302,7 +300,8 @@ export async function ensureRenewalTask({
   renewalEndYYYYMMDD = ''
 }) {
   const { subject: subjectTpl, body: bodyTpl } = buildReminderTemplates({ monthsBefore });
-  const subject = subjectTpl;
+  // Include Job # in subject so de-dupe is per job, and so it displays clearly under job tasks.
+  const subject = `${subjectTpl} - Job #${jobNumber || jobId}`;
 
   // Idempotency: if a task with same subject exists, skip.
   const existing = await searchTasksBySubject(subject);
@@ -384,7 +383,7 @@ export async function runRenewalRunner({
 
       if (r.expiry) {
         const tpl = buildReminderTemplates({ includeExpiry: true });
-        const subject = tpl.subject;
+        const subject = `${tpl.subject} - Job #${jobNumber || jobId}`;
         const vars = {
           'Customer Name': customerName || 'Customer',
           'Job Number': jobNumber || jobId,
