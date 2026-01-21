@@ -1,7 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
-import { findJobTagByName, listJobTags, probeTagEndpoints } from '../../services/simpro/tagService.js';
+import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags } from '../../services/simpro/tagService.js';
 
 const router = express.Router();
 
@@ -311,6 +311,16 @@ router.get('/probe-tag-endpoints', async (req, res) => {
   } catch (e) {
     logger.error('Error in probe-tag-endpoints:', e);
     res.status(500).json({ error: 'Failed to probe tag endpoints', details: e.message });
+  }
+});
+
+router.get('/debug-project-tags', async (req, res) => {
+  try {
+    const result = await debugFetchProjectTags();
+    res.json(result);
+  } catch (e) {
+    logger.error('Error in debug-project-tags:', e);
+    res.status(500).json({ error: 'Failed to fetch project tags', details: e.message });
   }
 });
 

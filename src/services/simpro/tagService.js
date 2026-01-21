@@ -18,6 +18,11 @@ async function tryGet(url) {
   return res.data;
 }
 
+async function tryGetWithMeta(url, config = {}) {
+  const res = await axiosInstance.get(url, config);
+  return { status: res.status, headers: res.headers, data: res.data };
+}
+
 async function tryOptions(url) {
   const res = await axiosInstance.request({ method: 'options', url });
   return res;
@@ -178,6 +183,7 @@ export async function listJobTags() {
 
 export async function probeTagEndpoints() {
   const candidates = [
+    `/companies/${companyId}/setup/tags/projects/`,
     `/companies/${companyId}/jobs/tags/`,
     `/companies/${companyId}/jobs/tags`,
     `/companies/${companyId}/projects/tags/`,
@@ -266,5 +272,43 @@ export async function listTagsForJob(jobId) {
   }
 
   return { sourceUrl: null, allow: '', items: [], attempts };
+}
+
+export async function debugFetchProjectTags() {
+  const url = `/companies/${companyId}/setup/tags/projects/`;
+  const tries = [];
+
+  const configs = [
+    { label: 'no-params', config: {} },
+    { label: 'page1-size50', config: { params: { page: 1, pageSize: 50 } } },
+    { label: 'page1-size250', config: { params: { page: 1, pageSize: 250 } } },
+    { label: 'page2-size250', config: { params: { page: 2, pageSize: 250 } } }
+  ];
+
+  for (const c of configs) {
+    try {
+      const res = await tryGetWithMeta(url, c.config);
+      const list = normalizeList(res.data).map(normalizeTag).filter((x) => x.id && x.name);
+      tries.push({
+        label: c.label,
+        ok: true,
+        status: res.status,
+        link: res.headers?.link || res.headers?.Link || null,
+        total: res.headers?.['x-total-count'] || res.headers?.['X-Total-Count'] || null,
+        count: list.length,
+        sample: list.slice(0, 15)
+      });
+    } catch (e) {
+      tries.push({
+        label: c.label,
+        ok: false,
+        status: e?.response?.status ?? null,
+        data: e?.response?.data || null,
+        message: e?.message || ''
+      });
+    }
+  }
+
+  return { url, tries };
 }
 
