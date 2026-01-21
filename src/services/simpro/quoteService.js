@@ -253,13 +253,13 @@ export async function probeTaskCreate({ quoteId, staffId }) {
   const basePayload = {
     Subject: `Probe task create (quote ${quoteId})`,
     Description: 'Probe created by automation service to confirm task creation endpoint.',
-    DueDate: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    DueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10) // YYYY-MM-DD
   };
 
   const payloads = [
     { label: 'Staff', data: { ...basePayload, Staff: { ID: Number(sid) } } },
-    { label: 'AssignedTo', data: { ...basePayload, AssignedTo: { ID: Number(sid) } } },
-    { label: 'Assignees', data: { ...basePayload, Assignees: [{ ID: Number(sid) }] } },
+    { label: 'AssignedToInt', data: { ...basePayload, AssignedTo: Number(sid) } },
+    { label: 'AssigneesInt', data: { ...basePayload, Assignees: [Number(sid)] } },
     { label: 'StaffID', data: { ...basePayload, StaffID: Number(sid) } },
     { label: 'AssignedToID', data: { ...basePayload, AssignedToID: Number(sid) } }
   ];
