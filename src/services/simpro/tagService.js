@@ -312,3 +312,82 @@ export async function debugFetchProjectTags() {
   return { url, tries };
 }
 
+export async function probeJobTagAttach({ jobId, tagId }) {
+  const jid = encodeURIComponent(String(jobId));
+  const tid = String(tagId);
+  const candidates = [
+    // Most likely: job-scoped project tags
+    `/companies/${companyId}/jobs/${jid}/tags/projects/`,
+    `/companies/${companyId}/jobs/${jid}/tags/projects`,
+    // Alternative shapes
+    `/companies/${companyId}/jobs/${jid}/projectTags/`,
+    `/companies/${companyId}/jobs/${jid}/projectTags`,
+    `/companies/${companyId}/jobs/${jid}/tags/`,
+    `/companies/${companyId}/jobs/${jid}/tags`
+  ];
+
+  const results = [];
+  for (const url of candidates) {
+    // OPTIONS
+    try {
+      const opt = await tryOptions(url);
+      results.push({ url, method: 'OPTIONS', status: opt.status, allow: String(opt.headers?.allow || '') });
+    } catch (e) {
+      results.push({ url, method: 'OPTIONS', status: e?.response?.status ?? null, error: e?.message || '', allow: String(e?.response?.headers?.allow || '') });
+    }
+
+    // GET (list current tags)
+    try {
+      const data = await tryGet(url);
+      const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
+      results.push({ url, method: 'GET', status: 200, count: items.length, sample: items.slice(0, 10) });
+    } catch (e) {
+      results.push({ url, method: 'GET', status: e?.response?.status ?? null, error: e?.message || '', data: e?.response?.data || null });
+    }
+
+    // POST attach tag (try common payloads)
+    const payloads = [
+      { label: 'ID', data: { ID: Number(tid) } },
+      { label: 'Id', data: { Id: Number(tid) } },
+      { label: 'TagID', data: { TagID: Number(tid) } },
+      { label: 'Tag', data: { Tag: { ID: Number(tid) } } }
+    ];
+    for (const p of payloads) {
+      try {
+        const res = await axiosInstance.post(url, p.data);
+        results.push({ url, method: 'POST', variant: p.label, status: res.status, ok: true, data: res.data });
+      } catch (e) {
+        results.push({ url, method: 'POST', variant: p.label, status: e?.response?.status ?? null, ok: false, data: e?.response?.data || null, error: e?.message || '' });
+      }
+    }
+  }
+
+  return results;
+}
+
+export async function attachProjectTagToJob({ jobId, tagId }) {
+  const jid = encodeURIComponent(String(jobId));
+  const tid = Number(tagId);
+  const url = `/companies/${companyId}/jobs/${jid}/tags/projects/`;
+
+  // This is the most likely working shape given the setup endpoint is /setup/tags/projects/
+  // Try both accepted payload shapes.
+  const payloads = [
+    { ID: tid },
+    { TagID: tid }
+  ];
+
+  let lastErr = null;
+  for (const payload of payloads) {
+    try {
+      const res = await axiosInstance.post(url, payload);
+      return res.data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  if (lastErr) throw lastErr;
+  return null;
+}
+

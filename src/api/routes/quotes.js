@@ -1,7 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
-import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags } from '../../services/simpro/tagService.js';
+import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob } from '../../services/simpro/tagService.js';
 
 const router = express.Router();
 
@@ -321,6 +321,30 @@ router.get('/debug-project-tags', async (req, res) => {
   } catch (e) {
     logger.error('Error in debug-project-tags:', e);
     res.status(500).json({ error: 'Failed to fetch project tags', details: e.message });
+  }
+});
+
+router.get('/probe-job-tag-attach/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const tagId = (req.query?.tagId || '256').toString();
+    const results = await probeJobTagAttach({ jobId, tagId });
+    res.json({ jobId: String(jobId), tagId: String(tagId), results });
+  } catch (e) {
+    logger.error('Error in probe-job-tag-attach:', e);
+    res.status(500).json({ error: 'Failed to probe job tag attach', details: e.message });
+  }
+});
+
+router.post('/attach-job-tag/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const tagId = (req.body?.tagId || req.query?.tagId || '256').toString();
+    const result = await attachProjectTagToJob({ jobId, tagId });
+    res.json({ success: true, jobId: String(jobId), tagId: String(tagId), result });
+  } catch (e) {
+    logger.error('Error in attach-job-tag:', e);
+    res.status(500).json({ error: 'Failed to attach job tag', details: e.message, simproStatus: e?.response?.status, simproResponse: e?.response?.data });
   }
 });
 
