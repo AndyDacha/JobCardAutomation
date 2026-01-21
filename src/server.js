@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import config from './config/index.js';
 import logger from './utils/logger.js';
 import jobCardsRouter from './api/routes/jobCards.js';
+import quotesRouter from './api/routes/quotes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,9 @@ app.get('/health', (req, res) => {
 
 // Job cards routes
 app.use('/api/job-cards', jobCardsRouter);
+
+// Quotes automation routes (kept separate from job cards)
+app.use('/api/quotes', quotesRouter);
 
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
