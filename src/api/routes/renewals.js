@@ -1,6 +1,6 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { runRenewalRunner, searchTasksBySubject, listRecentTasks, ensureCompletionDayTask } from '../../services/simpro/renewalService.js';
+import { runRenewalRunner, searchTasksBySubject, listRecentTasks, ensureCompletionDayTask, computeRenewalScheduleFromCompletedDate } from '../../services/simpro/renewalService.js';
 import { getJobLinkInfo } from '../../services/simpro/quoteService.js';
 
 const router = express.Router();
@@ -56,6 +56,38 @@ router.get('/recent-tasks', async (req, res) => {
   } catch (e) {
     logger.error('Error fetching recent tasks:', e);
     res.status(500).json({ error: 'Failed to fetch recent tasks', details: e.message });
+  }
+});
+
+// Read-only: preview renewal schedule for a specific job (no task creation)
+router.get('/preview/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const tagId = Number(req.query?.tagId ?? 256);
+
+    const link = await getJobLinkInfo(jobId);
+    const raw = link?.raw || {};
+    const tags = raw.Tags || raw.tags || [];
+    const tagIds = Array.isArray(tags) ? tags.map((t) => Number(t?.ID ?? t)).filter((n) => Number.isFinite(n)) : [];
+
+    const completedDate = String(raw.CompletedDate || raw.DateCompleted || '').slice(0, 10);
+    const schedule = completedDate ? computeRenewalScheduleFromCompletedDate(completedDate) : null;
+
+    return res.json({
+      ok: true,
+      jobId: String(jobId),
+      jobNumber: String(link?.jobNumber || jobId),
+      hasMaintenanceTag: tagIds.includes(tagId),
+      completedDate: completedDate || null,
+      schedule
+    });
+  } catch (e) {
+    const status = e?.response?.status;
+    if (status === 404 || status === 410) {
+      return res.status(404).json({ ok: false, jobId: String(req.params?.jobId || ''), exists: false });
+    }
+    logger.error('Error previewing renewal schedule:', e);
+    return res.status(500).json({ error: 'Failed to preview renewal schedule', details: e.message, simproStatus: status, simproResponse: e?.response?.data });
   }
 });
 

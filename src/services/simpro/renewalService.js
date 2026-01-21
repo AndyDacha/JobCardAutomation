@@ -47,6 +47,19 @@ export function addMonthsUtc(date, months) {
   return new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), clamped));
 }
 
+export function computeRenewalScheduleFromCompletedDate(completedDateYYYYMMDD) {
+  const start = parseDateOnly(String(completedDateYYYYMMDD || '').slice(0, 10));
+  if (!start) return null;
+  const renewalDue = addMonthsUtc(start, 12);
+  return {
+    maintenanceStartDate: toDateOnlyString(start),
+    renewalDueDate: toDateOnlyString(renewalDue),
+    reminderT3Date: toDateOnlyString(addMonthsUtc(renewalDue, -3)),
+    reminderT2Date: toDateOnlyString(addMonthsUtc(renewalDue, -2)),
+    reminderT1Date: toDateOnlyString(addMonthsUtc(renewalDue, -1))
+  };
+}
+
 async function requestWithRetry(method, url, data = undefined, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     try {
