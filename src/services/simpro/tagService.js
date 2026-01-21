@@ -28,6 +28,20 @@ async function trySearch(url, data) {
   return res.data;
 }
 
+async function getAllPages({ url, pageSize = 250 }) {
+  const all = [];
+  for (let page = 1; page < 200; page++) {
+    const sep = url.includes('?') ? '&' : '?';
+    const pageUrl = `${url}${sep}pageSize=${pageSize}&page=${page}`;
+    const data = await tryGet(pageUrl);
+    const items = normalizeList(data);
+    if (!Array.isArray(items) || items.length === 0) break;
+    all.push(...items);
+    if (items.length < pageSize) break;
+  }
+  return all;
+}
+
 function normalizeList(raw) {
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw?.Items)) return raw.Items;
@@ -49,6 +63,8 @@ export async function findJobTagByName(tagName) {
 
   // Simpro route shapes vary; probe common locations.
   const candidates = [
+    // Confirmed by you (Project Tags under setup) - likely paginated
+    `/companies/${companyId}/setup/tags/projects/`,
     `/companies/${companyId}/jobs/tags/`,
     `/companies/${companyId}/jobs/tags`,
     // Project Tags (often used for Jobs/Projects)
@@ -78,7 +94,11 @@ export async function findJobTagByName(tagName) {
       }
 
       let data = null;
-      if (allow.toUpperCase().includes('SEARCH')) {
+      if (url.includes('/setup/tags/projects/')) {
+        // Setup project tags are paginated lists
+        const raw = await getAllPages({ url });
+        data = raw;
+      } else if (allow.toUpperCase().includes('SEARCH')) {
         // Try common SEARCH payload shapes. If filters aren't supported, a bare SEARCH may return the list.
         const payloads = [
           { SearchTerm: tagName },
@@ -115,6 +135,7 @@ export async function findJobTagByName(tagName) {
 
 export async function listJobTags() {
   const candidates = [
+    `/companies/${companyId}/setup/tags/projects/`,
     `/companies/${companyId}/jobs/tags/`,
     `/companies/${companyId}/jobs/tags`,
     `/companies/${companyId}/projects/tags/`,
@@ -135,7 +156,9 @@ export async function listJobTags() {
         // ignore
       }
 
-      if (allow.toUpperCase().includes('SEARCH')) {
+      if (url.includes('/setup/tags/projects/')) {
+        data = await getAllPages({ url });
+      } else if (allow.toUpperCase().includes('SEARCH')) {
         try {
           data = await trySearch(url, {});
         } catch {
@@ -202,5 +225,46 @@ export async function probeTagEndpoints() {
   }
 
   return results;
+}
+
+export async function listTagsForJob(jobId) {
+  const jid = encodeURIComponent(String(jobId));
+  const candidates = [
+    `/companies/${companyId}/jobs/${jid}/tags/`,
+    `/companies/${companyId}/jobs/${jid}/tags`,
+    `/companies/${companyId}/projects/${jid}/tags/`,
+    `/companies/${companyId}/projects/${jid}/tags`,
+    `/companies/${companyId}/projects/${jid}/projectTags/`,
+    `/companies/${companyId}/projects/${jid}/projectTags`,
+    `/companies/${companyId}/jobs/${jid}/projectTags/`,
+    `/companies/${companyId}/jobs/${jid}/projectTags`
+  ];
+
+  const attempts = [];
+  for (const url of candidates) {
+    let allow = '';
+    try {
+      const opt = await tryOptions(url);
+      allow = String(opt?.headers?.allow || '');
+    } catch {
+      // ignore
+    }
+
+    try {
+      const data = await tryGet(url);
+      const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
+      return { sourceUrl: url, allow, items, attempts };
+    } catch (e) {
+      attempts.push({
+        url,
+        allow,
+        status: e?.response?.status ?? null,
+        data: e?.response?.data || null,
+        error: e?.message || ''
+      });
+    }
+  }
+
+  return { sourceUrl: null, allow: '', items: [], attempts };
 }
 
