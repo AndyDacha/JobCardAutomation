@@ -141,6 +141,28 @@ function readContactQrBase64() {
   return '';
 }
 
+function readAccreditationBadges() {
+  const base = path.join(__dirname, '../../../Dacha Logo');
+  const files = [
+    { filename: 'ISO-9001-2015-badge-white.png', mime: 'image/png', alt: 'ISO 9001:2015' },
+    { filename: 'ISO-14001-2015-badge-white.png', mime: 'image/png', alt: 'ISO 14001:2015' },
+    { filename: 'ISO-27001-2013-badge-white.png', mime: 'image/png', alt: 'ISO 27001:2013' },
+    { filename: 'ssaib-certified-full-cmyk-verify.webp', mime: 'image/webp', alt: 'SSAIB Certified' }
+  ];
+
+  const out = [];
+  for (const f of files) {
+    try {
+      const p = path.join(base, f.filename);
+      if (!fs.existsSync(p)) continue;
+      out.push({ mime: f.mime, base64: fs.readFileSync(p).toString('base64'), alt: f.alt });
+    } catch (e) {
+      logger.warn(`Could not load accreditation badge ${f.filename}: ${e.message}`);
+    }
+  }
+  return out;
+}
+
 function extractFirstEngineerId(engineers) {
   if (!Array.isArray(engineers) || engineers.length === 0) return null;
   const first = String(engineers[0] || '');
@@ -195,6 +217,7 @@ function readSignatureData(employeeOrContractorId) {
 export function generateHTMLv2(data) {
   const logoBase64 = readLogoBase64();
   const contactQrBase64 = readContactQrBase64();
+  const accreditationBadges = readAccreditationBadges();
 
   const jobId = data?.job?.id ?? '';
   const jobNumber = data?.job?.jobNumber ?? jobId;
@@ -349,6 +372,22 @@ export function generateHTMLv2(data) {
     .qr { text-align: center; }
     .qr img { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto; }
     .qr .lbl { margin-top: 4px; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .accreditations {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .accreditations img {
+      height: 34px;
+      width: auto;
+      object-fit: contain;
+      background: transparent;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -540,10 +579,17 @@ export function generateHTMLv2(data) {
       </div>
     </div>
 
-    <div class="section card">
+    <div class="section card avoid-break">
       <div class="hd">Completion Statement</div>
-      <div class="bd fine">
-        This job card confirms the works carried out during the visit. All works were completed in accordance with applicable standards and manufacturer guidance, and the system was left safe and operational at the time of departure. Where a customer signature is not obtained, this record shall be deemed accurate unless notification is received within 5 working days.
+      <div class="bd">
+        <div class="fine">
+          This job card confirms the works carried out during the visit. All works were completed in accordance with applicable standards and manufacturer guidance, and the system was left safe and operational at the time of departure. Where a customer signature is not obtained, this record shall be deemed accurate unless notification is received within 5 working days.
+        </div>
+        ${accreditationBadges.length > 0 ? `
+          <div class="accreditations">
+            ${accreditationBadges.map(b => `<img src="data:${escapeHtml(b.mime)};base64,${escapeHtml(b.base64)}" alt="${escapeHtml(b.alt || 'Accreditation')}" />`).join('')}
+          </div>
+        ` : ''}
       </div>
     </div>
   </div>
