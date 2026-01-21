@@ -80,8 +80,13 @@ async function processQuoteWebhookAsync(webhookData) {
   const yesValue = process.env.QUOTE_TRIGGER_YES_VALUE || 'YES';
 
   // Assignee (Carol) - required to create task
-  const assigneeStaffId = process.env.QUOTE_REVIEW_ASSIGNEE_STAFF_ID || '';
+  const assigneeStaffId = process.env.QUOTE_REVIEW_ASSIGNEE_STAFF_ID || '12';
   const assigneeName = process.env.QUOTE_REVIEW_ASSIGNEE_NAME || "Carol O'Keeffe";
+
+  if (!triggerFieldId && !triggerFieldName) {
+    logger.warn('QUOTE_TRIGGER_CUSTOM_FIELD_ID or QUOTE_TRIGGER_CUSTOM_FIELD_NAME must be set to evaluate the YES condition. Skipping.');
+    return;
+  }
 
   if (!assigneeStaffId) {
     logger.warn('QUOTE_REVIEW_ASSIGNEE_STAFF_ID is not set; cannot create review task. Skipping.');

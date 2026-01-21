@@ -51,9 +51,20 @@ function normalizeCustomFields(raw) {
 
   return fields
     .map((f) => {
-      const id = f?.ID ?? f?.Id ?? f?.id ?? '';
-      const name = f?.Name ?? f?.name ?? f?.FieldName ?? f?.fieldName ?? '';
-      const value = f?.Value ?? f?.value ?? f?.Answer ?? f?.answer ?? f?.Text ?? f?.text ?? '';
+      // Quote custom fields often come back as either:
+      // { ID, Name, Value } OR { CustomField: { ID, Name }, Value } OR similar.
+      const id =
+        f?.ID ?? f?.Id ?? f?.id ??
+        f?.CustomField?.ID ?? f?.CustomField?.Id ?? f?.CustomField?.id ??
+        '';
+      const name =
+        f?.Name ?? f?.name ?? f?.FieldName ?? f?.fieldName ??
+        f?.CustomField?.Name ?? f?.CustomField?.name ??
+        '';
+      const value =
+        f?.Value ?? f?.value ?? f?.Answer ?? f?.answer ?? f?.Text ?? f?.text ??
+        f?.SelectedValue ?? f?.selectedValue ??
+        '';
       return { id: id !== null && id !== undefined ? String(id) : '', name: name ? String(name) : '', value: value !== null && value !== undefined ? String(value) : '' };
     })
     .filter((f) => f.id || f.name);
@@ -137,11 +148,12 @@ async function tryCreateTask({ subject, description, dueDate, assigneeStaffId, q
   // Try a couple of common payload shapes to maximize compatibility.
   const payloads = [
     {
+      // Preferred/most common Simpro-style fields
       Subject: subject,
       Description: description,
       DueDate: dueDate,
       Staff: { ID: Number.isFinite(Number(sid)) ? Number(sid) : sid },
-      Related: { QuoteID: Number.isFinite(Number(qid)) ? Number(qid) : qid }
+      Quote: { ID: Number.isFinite(Number(qid)) ? Number(qid) : qid }
     },
     {
       Name: subject,
