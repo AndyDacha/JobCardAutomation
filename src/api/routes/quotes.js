@@ -6,12 +6,31 @@ const router = express.Router();
 
 // In-memory idempotency guard (production: move to Redis/DB)
 const processedQuoteWebhooks = new Set();
+let lastQuoteWebhook = null;
+let lastQuoteWebhookAt = null;
+let quoteWebhookCount = 0;
 
 router.get('/webhook', (req, res) => {
   res.json({
     message: 'Quotes webhook endpoint is accessible',
     method: 'Use POST for actual webhooks',
     url: '/api/quotes/webhook'
+  });
+});
+
+// Debug: view last received quote webhook payload (in-memory; resets on deploy/restart)
+router.get('/last-webhook', (req, res) => {
+  res.json({
+    receivedAt: lastQuoteWebhookAt,
+    count: quoteWebhookCount,
+    lastWebhook: lastQuoteWebhook
+  });
+});
+
+router.get('/webhook-stats', (req, res) => {
+  res.json({
+    count: quoteWebhookCount,
+    lastReceivedAt: lastQuoteWebhookAt
   });
 });
 
@@ -22,6 +41,18 @@ router.post('/webhook', async (req, res) => {
     logger.info('Webhook headers:', JSON.stringify(req.headers, null, 2));
     logger.info('Webhook body:', JSON.stringify(req.body, null, 2));
     logger.info('===========================================');
+
+    // Save for quick manual verification
+    quoteWebhookCount += 1;
+    lastQuoteWebhookAt = timestamp;
+    lastQuoteWebhook = {
+      headers: {
+        'user-agent': req.headers?.['user-agent'],
+        'content-type': req.headers?.['content-type'],
+        'x-response-signature': req.headers?.['x-response-signature']
+      },
+      body: req.body
+    };
 
     // Ack immediately
     res.status(200).json({ received: true, message: 'Quote webhook received and processing', timestamp });
