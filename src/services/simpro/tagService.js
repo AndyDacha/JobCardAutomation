@@ -419,3 +419,36 @@ export async function attachProjectTagToJob({ jobId, tagId }) {
   return null;
 }
 
+export async function probeJobPatchForTags({ jobId, tagId }) {
+  const jid = encodeURIComponent(String(jobId));
+  const tid = Number(tagId);
+
+  const url = `/companies/${companyId}/jobs/${jid}`;
+
+  const payloads = [
+    { label: 'ProjectTags_ids', data: { ProjectTags: [tid] } },
+    { label: 'ProjectTags_objects', data: { ProjectTags: [{ ID: tid }] } },
+    { label: 'Tags_ids', data: { Tags: [tid] } },
+    { label: 'Tags_objects', data: { Tags: [{ ID: tid }] } },
+    { label: 'ProjectTagIDs', data: { ProjectTagIDs: [tid] } },
+    { label: 'TagIDs', data: { TagIDs: [tid] } }
+  ];
+
+  const results = [];
+  for (const p of payloads) {
+    try {
+      const res = await axiosInstance.patch(url, p.data);
+      results.push({ ok: true, status: res.status, label: p.label, data: res.data });
+    } catch (e) {
+      results.push({
+        ok: false,
+        status: e?.response?.status ?? null,
+        label: p.label,
+        data: e?.response?.data || null,
+        error: e?.message || ''
+      });
+    }
+  }
+  return { url, results };
+}
+
