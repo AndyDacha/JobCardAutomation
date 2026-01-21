@@ -1,6 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
+import { findJobTagByName, listJobTags } from '../../services/simpro/tagService.js';
 
 const router = express.Router();
 
@@ -276,6 +277,30 @@ router.get('/debug-job-link/:jobId', async (req, res) => {
   } catch (e) {
     logger.error('Error in debug-job-link:', e);
     res.status(500).json({ error: 'Failed to fetch job link info', details: e.message });
+  }
+});
+
+// Debug: find job tag ID by name (e.g. "Maintenance Contract")
+router.get('/find-job-tag', async (req, res) => {
+  try {
+    const name = (req.query?.name || '').toString();
+    if (!name) return res.status(400).json({ error: 'name query param is required' });
+    const tag = await findJobTagByName(name);
+    if (!tag) return res.status(404).json({ error: 'Tag not found', name });
+    return res.json(tag);
+  } catch (e) {
+    logger.error('Error in find-job-tag:', e);
+    return res.status(500).json({ error: 'Failed to find job tag', details: e.message });
+  }
+});
+
+router.get('/list-job-tags', async (req, res) => {
+  try {
+    const result = await listJobTags();
+    res.json(result);
+  } catch (e) {
+    logger.error('Error in list-job-tags:', e);
+    res.status(500).json({ error: 'Failed to list job tags', details: e.message });
   }
 });
 
