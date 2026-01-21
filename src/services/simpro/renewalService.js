@@ -223,9 +223,13 @@ export async function ensureCompletionDayTask({
   siteName,
   customerName,
   completedDateYYYYMMDD,
-  assignedToId = 12
+  assignedToId = 12,
+  maintenanceValue = 'TBC'
 }) {
-  const subject = `Maintenance Contract Started - Job #${jobNumber || jobId}`;
+  const subject = renderTemplate(
+    'Job Completed – Maintenance Contract Activated & Renewal Alerts Scheduled',
+    { 'Job Number': jobNumber || jobId }
+  );
 
   const existing = await searchTasksBySubject(subject);
   const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
@@ -234,15 +238,46 @@ export async function ensureCompletionDayTask({
   const completedDate = parseDateOnly(completedDateYYYYMMDD);
   const renewalDue = completedDate ? addMonthsUtc(completedDate, 12) : null;
   const renewalDueStr = renewalDue ? toDateOnlyString(renewalDue) : '';
+  const r3 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -3)) : '';
+  const r2 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -2)) : '';
+  const r1 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -1)) : '';
 
-  const description =
-    `Maintenance contract started (triggered on job completion).\n` +
-    `Job ID: ${jobId}\n` +
-    `Job Number: ${jobNumber || jobId}\n` +
-    (siteName ? `Site: ${siteName}\n` : '') +
-    (customerName ? `Customer: ${customerName}\n` : '') +
-    (completedDateYYYYMMDD ? `Maintenance Start Date: ${completedDateYYYYMMDD}\n` : '') +
-    (renewalDueStr ? `Renewal Due Date: ${renewalDueStr}\n` : '');
+  const vars = {
+    'Job Number': jobNumber || jobId,
+    'Customer Name': customerName || 'Customer',
+    'Site Name': siteName || '',
+    'Job Completion Date': completedDateYYYYMMDD || '',
+    'Renewal Date': renewalDueStr || '',
+    'Maintenance Value': maintenanceValue || 'TBC'
+  };
+
+  const description = renderTemplate(
+    'Hello Team,\n\n' +
+      'Please note that Job {{Job Number}} has now been marked as Completed.\n\n' +
+      'This job includes an annual maintenance contract, which has now been activated as of the job completion date.\n\n' +
+      'Maintenance Contract Details\n\n' +
+      'Customer: {{Customer Name}}\n\n' +
+      'Site: {{Site Name}}\n\n' +
+      'Maintenance Start Date: {{Job Completion Date}}\n\n' +
+      'Maintenance End Date: {{Renewal Date}}\n\n' +
+      'Annual Maintenance Value: £{{Maintenance Value}}\n\n' +
+      'Year 1 Status: Included with installation (100% discounted)\n\n' +
+      'Automation Status\n\n' +
+      'The following automated renewal reminders have been successfully scheduled:\n\n' +
+      '3 months before expiry\n\n' +
+      '2 months before expiry\n\n' +
+      '1 month before expiry\n\n' +
+      'No further action is required at this stage unless changes are needed to the maintenance value or customer contact details.\n\n' +
+      'If any discrepancies are identified, please update the job or contract record accordingly.\n\n' +
+      'Regards,\n' +
+      'Dacha SSI – Automation Notification\n\n' +
+      '---\n' +
+      'Internal schedule dates (for audit):\n' +
+      (r3 ? `T-3 months task creation date: ${r3}\n` : '') +
+      (r2 ? `T-2 months task creation date: ${r2}\n` : '') +
+      (r1 ? `T-1 month task creation date: ${r1}\n` : ''),
+    vars
+  );
 
   const task = await createTask({
     subject,
