@@ -1,7 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
-import { findJobTagByName, listJobTags } from '../../services/simpro/tagService.js';
+import { findJobTagByName, listJobTags, probeTagEndpoints } from '../../services/simpro/tagService.js';
 
 const router = express.Router();
 
@@ -301,6 +301,16 @@ router.get('/list-job-tags', async (req, res) => {
   } catch (e) {
     logger.error('Error in list-job-tags:', e);
     res.status(500).json({ error: 'Failed to list job tags', details: e.message });
+  }
+});
+
+router.get('/probe-tag-endpoints', async (req, res) => {
+  try {
+    const results = await probeTagEndpoints();
+    res.json({ results });
+  } catch (e) {
+    logger.error('Error in probe-tag-endpoints:', e);
+    res.status(500).json({ error: 'Failed to probe tag endpoints', details: e.message });
   }
 });
 

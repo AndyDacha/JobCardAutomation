@@ -24,7 +24,7 @@ async function tryOptions(url) {
 }
 
 async function trySearch(url, data) {
-  const res = await axiosInstance.request({ method: 'search', url, data });
+  const res = await axiosInstance.request({ method: 'SEARCH', url, data });
   return res.data;
 }
 
@@ -151,5 +151,56 @@ export async function listJobTags() {
     }
   }
   return { sourceUrl: null, allow: '', items: [] };
+}
+
+export async function probeTagEndpoints() {
+  const candidates = [
+    `/companies/${companyId}/jobs/tags/`,
+    `/companies/${companyId}/jobs/tags`,
+    `/companies/${companyId}/projects/tags/`,
+    `/companies/${companyId}/projects/tags`,
+    `/companies/${companyId}/projectTags/`,
+    `/companies/${companyId}/projectTags`,
+    `/companies/${companyId}/tags/`,
+    `/companies/${companyId}/tags`,
+    `/companies/${companyId}/setup/tags/`,
+    `/companies/${companyId}/setup/tags`,
+    `/setup/tags/`,
+    `/setup/tags`
+  ];
+
+  const results = [];
+  for (const url of candidates) {
+    const entry = { url, options: null, search: null, get: null };
+
+    try {
+      const opt = await tryOptions(url);
+      entry.options = { status: opt.status, allow: String(opt.headers?.allow || '') };
+    } catch (e) {
+      entry.options = { status: e?.response?.status ?? null, error: e?.message || '', allow: String(e?.response?.headers?.allow || '') };
+    }
+
+    // SEARCH probe with empty body
+    try {
+      const data = await trySearch(url, {});
+      const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
+      entry.search = { ok: true, count: items.length, sample: items.slice(0, 15) };
+    } catch (e) {
+      entry.search = { ok: false, status: e?.response?.status ?? null, data: e?.response?.data || null, error: e?.message || '' };
+    }
+
+    // GET probe (some endpoints use GET)
+    try {
+      const data = await tryGet(url);
+      const items = normalizeList(data).map(normalizeTag).filter((x) => x.id && x.name);
+      entry.get = { ok: true, count: items.length, sample: items.slice(0, 15) };
+    } catch (e) {
+      entry.get = { ok: false, status: e?.response?.status ?? null, data: e?.response?.data || null, error: e?.message || '' };
+    }
+
+    results.push(entry);
+  }
+
+  return results;
 }
 
