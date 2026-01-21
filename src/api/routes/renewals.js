@@ -1,6 +1,7 @@
 import express from 'express';
 import logger from '../../utils/logger.js';
-import { runRenewalRunner, searchTasksBySubject, listRecentTasks } from '../../services/simpro/renewalService.js';
+import { runRenewalRunner, searchTasksBySubject, listRecentTasks, ensureCompletionDayTask } from '../../services/simpro/renewalService.js';
+import { getJobLinkInfo } from '../../services/simpro/quoteService.js';
 
 const router = express.Router();
 
@@ -54,6 +55,54 @@ router.get('/recent-tasks', async (req, res) => {
   } catch (e) {
     logger.error('Error fetching recent tasks:', e);
     res.status(500).json({ error: 'Failed to fetch recent tasks', details: e.message });
+  }
+});
+
+// Manual: create the completion-day task for a specific job (for testing/backfill)
+// Query:
+// - dryRun=true|false (default true)
+// - tagId (default 256)
+// - assignedToId (default 12)
+router.post('/create-completion-task/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const dryRun = String(req.query?.dryRun ?? 'true').toLowerCase() !== 'false';
+    const tagId = Number(req.query?.tagId ?? 256);
+    const assignedToId = Number(req.query?.assignedToId ?? 12);
+
+    const link = await getJobLinkInfo(jobId);
+    const raw = link?.raw || {};
+    const tags = raw.Tags || raw.tags || [];
+    const tagIds = Array.isArray(tags) ? tags.map((t) => Number(t?.ID ?? t)).filter((n) => Number.isFinite(n)) : [];
+    if (!tagIds.includes(tagId)) {
+      return res.status(409).json({ error: 'Job does not have maintenance tag', jobId: String(jobId), tagId });
+    }
+
+    const completedDate = String(raw.CompletedDate || raw.DateCompleted || '').slice(0, 10);
+    if (!completedDate) {
+      return res.status(409).json({ error: 'Job does not have a CompletedDate', jobId: String(jobId) });
+    }
+
+    const siteName = raw?.Site?.Name || '';
+    const customerName = raw?.Customer?.Name || '';
+    const subject = `Maintenance Contract Started - Job #${link?.jobNumber || jobId}`;
+
+    if (dryRun) {
+      return res.json({ dryRun: true, jobId: String(jobId), subject, dueDate: completedDate, assignedToId });
+    }
+
+    const result = await ensureCompletionDayTask({
+      jobId: String(jobId),
+      jobNumber: link?.jobNumber || jobId,
+      siteName,
+      customerName,
+      completedDateYYYYMMDD: completedDate,
+      assignedToId
+    });
+    return res.json({ dryRun: false, jobId: String(jobId), result });
+  } catch (e) {
+    logger.error('Error creating completion-day task:', e);
+    res.status(500).json({ error: 'Failed to create completion-day task', details: e.message, simproStatus: e?.response?.status, simproResponse: e?.response?.data });
   }
 });
 
