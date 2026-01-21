@@ -324,6 +324,17 @@ export async function probeJobTagAttach({ jobId, tagId }) {
     `/companies/${companyId}/jobs/${jid}/projectTags`,
     `/companies/${companyId}/jobs/${jid}/tags/`,
     `/companies/${companyId}/jobs/${jid}/tags`
+    ,
+    // Simpro often exposes tagging under "projects" rather than "jobs"
+    `/companies/${companyId}/projects/${jid}/tags/projects/`,
+    `/companies/${companyId}/projects/${jid}/tags/projects`,
+    `/companies/${companyId}/projects/${jid}/projectTags/`,
+    `/companies/${companyId}/projects/${jid}/projectTags`,
+    `/companies/${companyId}/projects/${jid}/tags/`,
+    `/companies/${companyId}/projects/${jid}/tags`,
+    // Some APIs use a tagId in the path
+    `/companies/${companyId}/projects/${jid}/tags/projects/${encodeURIComponent(tid)}`,
+    `/companies/${companyId}/projects/${jid}/tags/projects/${encodeURIComponent(tid)}/`
   ];
 
   const results = [];
@@ -360,6 +371,22 @@ export async function probeJobTagAttach({ jobId, tagId }) {
         results.push({ url, method: 'POST', variant: p.label, status: e?.response?.status ?? null, ok: false, data: e?.response?.data || null, error: e?.message || '' });
       }
     }
+
+    // PATCH attach tag (some resources accept patching)
+    const patchPayloads = [
+      { label: 'ProjectTagsIDs', data: { ProjectTags: [Number(tid)] } },
+      { label: 'ProjectTagsObjects', data: { ProjectTags: [{ ID: Number(tid) }] } },
+      { label: 'TagsIDs', data: { Tags: [Number(tid)] } },
+      { label: 'TagsObjects', data: { Tags: [{ ID: Number(tid) }] } }
+    ];
+    for (const p of patchPayloads) {
+      try {
+        const res = await axiosInstance.patch(url, p.data);
+        results.push({ url, method: 'PATCH', variant: p.label, status: res.status, ok: true, data: res.data });
+      } catch (e) {
+        results.push({ url, method: 'PATCH', variant: p.label, status: e?.response?.status ?? null, ok: false, data: e?.response?.data || null, error: e?.message || '' });
+      }
+    }
   }
 
   return results;
@@ -368,7 +395,8 @@ export async function probeJobTagAttach({ jobId, tagId }) {
 export async function attachProjectTagToJob({ jobId, tagId }) {
   const jid = encodeURIComponent(String(jobId));
   const tid = Number(tagId);
-  const url = `/companies/${companyId}/jobs/${jid}/tags/projects/`;
+  // Prefer project-scoped tags route (jobs tagging endpoints are not present in this tenant)
+  const url = `/companies/${companyId}/projects/${jid}/tags/projects/`;
 
   // This is the most likely working shape given the setup endpoint is /setup/tags/projects/
   // Try both accepted payload shapes.
