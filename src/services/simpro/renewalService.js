@@ -61,6 +61,25 @@ async function requestWithRetry(method, url, data = undefined, maxRetries = 3) {
   }
 }
 
+async function jobExistsAndIsActive(jobId) {
+  // Only used right before creating tasks (so it won't add load for every job, every day).
+  const jid = encodeURIComponent(String(jobId));
+  const url = `/companies/${companyId}/jobs/${jid}`;
+  try {
+    const res = await requestWithRetry('get', url, undefined, 2);
+    const job = res?.data || {};
+    const statusName = String(job?.Status?.Name || job?.Status || '').toLowerCase();
+    // Defensive: if tenant exposes "deleted"/"cancelled"/"void" states, treat as not eligible for reminders.
+    if (statusName.includes('deleted') || statusName.includes('cancel') || statusName.includes('void')) return false;
+    return true;
+  } catch (e) {
+    const status = e?.response?.status;
+    // If job was deleted, Simpro should return 404/410.
+    if (status === 404 || status === 410) return false;
+    throw e;
+  }
+}
+
 function renderTemplate(tpl, vars) {
   return String(tpl || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, key) => {
     const k = String(key || '').trim();
@@ -379,6 +398,14 @@ export async function runRenewalRunner({
       const dueStr = toDateOnlyString(r.date);
       considered.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, expiry: !!r.expiry });
       if (dueStr !== todayStr) continue;
+
+      // IMPORTANT: if a job was deleted (common during testing), do not create any reminder tasks.
+      // We only check existence for jobs that are actually due today to avoid unnecessary API load.
+      const eligible = await jobExistsAndIsActive(jobId);
+      if (!eligible) {
+        created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, created: false, skipped: 'job_deleted_or_inactive', expiry: !!r.expiry });
+        continue;
+      }
 
       if (dryRun) {
         created.push({ jobId, jobNumber, monthsBefore: r.monthsBefore, dueDate: dueStr, created: false, dryRun: true, expiry: !!r.expiry });

@@ -14,6 +14,7 @@ let lastQuoteWebhookAt = null;
 let quoteWebhookCount = 0;
 const createdManualTasks = new Set();
 const processedCompletionJobs = new Set(); // in-memory guard to prevent duplicate completion task creation
+const deletedJobs = new Set(); // in-memory: avoid any processing for jobs explicitly deleted via webhook
 
 router.get('/webhook', (req, res) => {
   res.json({
@@ -186,6 +187,23 @@ async function processQuoteWebhookAsync(webhookData) {
     webhookData?.Job?.ID ||
     webhookData?.jobId ||
     webhookData?.job?.id;
+
+  // If Simpro sends a job deleted event, record it and do not process further.
+  const action = String(webhookData?.action || '').toLowerCase();
+  const eventId = String(webhookData?.ID || webhookData?.id || '').toLowerCase();
+  if (jobId && (action === 'deleted' || eventId.includes('job.deleted'))) {
+    const jid = String(jobId);
+    deletedJobs.add(jid);
+    if (deletedJobs.size > 10000) deletedJobs.clear();
+    logger.info(`Job ${jid} marked deleted via webhook (${eventId || action}); skipping automation processing.`);
+    return;
+  }
+
+  // If we previously saw this job deleted in-process, skip any further processing.
+  if (jobId && deletedJobs.has(String(jobId))) {
+    logger.info(`Job ${jobId} previously marked deleted in-process; skipping automation processing.`);
+    return;
+  }
 
   // If this is a job event (e.g. conversion-created/updated), attempt to carry the quote flag onto the job via tag.
   if (jobId) {
