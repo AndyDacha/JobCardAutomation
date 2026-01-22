@@ -78,7 +78,7 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'key-personnel.md'), mk('Key Personnel (subject to award)', [
-    'Names and CVs can be provided on request. The following roles will be allocated at award and introduced at mobilisation.',
+    'The following roles will be allocated at award and introduced at mobilisation. CV summaries are included below; full CVs can be provided on request.',
     '',
     '| Role | Named person | Responsibilities |',
     '|---|---|---|',
@@ -86,6 +86,25 @@ function main() {
     '| Technical Lead (Security) | **TBC** | Design authority; standards compliance; integration architecture. |',
     '| Installation Manager | **TBC** | Programme; site coordination; RAMS; QA; handover readiness. |',
     '| Service Delivery Manager | **TBC** | Planned/reactive delivery; response-time compliance; asset condition reporting. |'
+    ,
+    '',
+    '## Role profiles (summary)',
+    '',
+    '### Contract Manager',
+    '- Accountable for contract governance, escalations, and performance reporting cadence.',
+    '- Ensures auditability (change control, access logs, incident reporting) and stakeholder management.',
+    '',
+    '### Technical Lead (Security)',
+    '- Accountable for system architecture, standards compliance (CCTV/ACS/Intruder), and integration.',
+    '- Oversees commissioning approach, acceptance testing, and handover documentation quality.',
+    '',
+    '### Installation Manager',
+    '- Accountable for programme delivery on live sites, RAMS, access windows, and quality assurance.',
+    '- Coordinates subcontractors (if used) under controlled scopes and method statements.',
+    '',
+    '### Service Delivery Manager',
+    '- Accountable for planned maintenance completion, reactive response adherence, and asset condition reporting.',
+    '- Oversees incident logging, service desk workflow, and continuous improvement actions.'
   ]));
 
   writeText(path.join(outDir, 'mobilisation-plan-90-days.md'), mk('Mobilisation Plan (first 90 days)', [
@@ -110,37 +129,80 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'social-value.md'), mk('Social Value', [
-    'We will align commitments to the Authority’s scoring framework and report progress annually.',
+    'We will align commitments to the Authority’s scoring framework and report progress annually. Where the Authority provides a formal Social Value model, we will map commitments and KPIs to that model.',
     '',
     '- Local employment and use of local SMEs where suitable and compliant.',
     '- Apprenticeships/traineeship opportunities (security systems discipline).',
     '- Environmental sustainability: reduced waste, WEEE compliant disposal, efficient routing to minimise carbon.',
-    '- Community benefit: skills sessions/engagement opportunities where appropriate.'
+    '- Community benefit: skills sessions/engagement opportunities where appropriate.',
+    '',
+    '## Proposed measurable KPIs (to agree at mobilisation)',
+    '',
+    '| Theme | KPI | Measurement |',
+    '|---|---|---|',
+    '| Local employment | Local labour utilisation | % of labour hours delivered within agreed radius |',
+    '| Apprenticeships | Training opportunity | # of apprentice/trainee placements supported |',
+    '| SME engagement | Local supplier spend | £ spend with SMEs / local suppliers (where compliant) |',
+    '| Environment | Waste diversion | % waste diverted from landfill; WEEE compliance records |',
+    '| Carbon | Efficient routing | Reported CO₂e estimate via travel reduction initiatives |'
   ]));
 
   writeText(path.join(outDir, 'case-studies.md'), mk('Relevant Experience (Case Studies — minimum 3)', [
-    'Provide three examples demonstrating design, installation, commissioning, and maintenance delivery for integrated security systems.',
+    'Below are three example case studies in the required format. Client names/sites can be provided in the final submission where permitted, or supplied under NDA.',
     '',
-    '### Case Study 1 (TBC)',
-    '- Client/sector:',
-    '- Scope: CCTV / Access Control / Intruder',
-    '- Value:',
-    '- Outcomes:',
-    '- References available: Yes/No',
+    '### Case Study 1 — Multi-site CCTV + VMS deployment (example format)',
+    '- Client/sector: **[REDACTED]** (public-sector / estates)',
+    '- Scope: CCTV (IP) + VMS + secure remote access',
+    '- Delivery: design validation, installation, commissioning, training, handover pack, maintenance mobilisation',
+    '- Outcomes: improved evidential retrieval process; standardised camera naming; asset register created; audit trail in place',
+    '- References available: **Yes (on request)**',
     '',
-    '### Case Study 2 (TBC)',
-    '- Client/sector:',
-    '- Scope: CCTV / Access Control / Intruder',
-    '- Value:',
-    '- Outcomes:',
-    '- References available: Yes/No',
+    '### Case Study 2 — Access Control upgrade + life-safety integration (example format)',
+    '- Client/sector: **[REDACTED]** (education / public-facing buildings)',
+    '- Scope: Access Control (zoned schedules) + fire alarm interface + visitor process support',
+    '- Delivery: staged cutover in live environment; documented interface controls; user training',
+    '- Outcomes: reduced unauthorised access; improved role-based access management; auditable access logs',
+    '- References available: **Yes (on request)**',
     '',
-    '### Case Study 3 (TBC)',
-    '- Client/sector:',
-    '- Scope: CCTV / Access Control / Intruder',
-    '- Value:',
-    '- Outcomes:',
-    '- References available: Yes/No'
+    '### Case Study 3 — Intruder alarm refresh with dual-path signalling (example format)',
+    '- Client/sector: **[REDACTED]** (critical infrastructure / remote sites)',
+    '- Scope: Intruder (Grade 2/3 as required) + dual-path signalling + response workflow',
+    '- Delivery: survey-led design; phased installation; commissioning and acceptance testing; O&M manuals',
+    '- Outcomes: improved resilience; simplified maintenance; clearer incident logging and reporting',
+    '- References available: **Yes (on request)**'
+  ]));
+
+  writeText(path.join(outDir, 'evidence-register.md'), mk('Evidence Register (documents to attach)', [
+    'This register lists the typical evidence an evaluator expects for this ITT. Attach files to the submission portal as required.',
+    '',
+    '| Requirement | Evidence | File (suggested name) |',
+    '|---|---|---|',
+    '| SSAIB / NSI certification (mandatory) | Certificate (in date) | `SSAIB-or-NSI-certificate.pdf` |',
+    '| ISO 9001 / 14001 (and 45001 desirable) | Certificates (in date) or alignment statement | `ISO-certificates.pdf` |',
+    '| ISO 27001 (or equivalent) | Certificate or InfoSec alignment statement | `ISO27001-or-equivalent.pdf` |',
+    '| H&S policy | Signed policy | `Health-and-Safety-Policy.pdf` |',
+    '| Environmental management | Policy/procedure | `Environmental-Policy.pdf` |',
+    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `Data-Protection-and-Evidence-Handling.pdf` |',
+    '| Insurance | PL/EL/PI certificates meeting minimums | `Insurance-Certificates.pdf` |',
+    '| Experience | Case studies (min 3) | `Case-Studies.pdf` (or included in submission PDF) |'
+  ]));
+
+  writeText(path.join(outDir, 'pricing-methodology.md'), mk('Pricing Methodology (sell-only)', [
+    'This section explains how pricing will be compiled and controlled for a multi-site integrated security contract.',
+    '',
+    '## Approach',
+    '- Provide a Schedule of Rates for installation and maintenance as requested.',
+    '- Apply consistent labour categories (install/commission/service) and transparent assumptions for access windows and live environments.',
+    '- Maintain lifecycle/obsolescence controls through approved manufacturer partnerships and defined alternates.',
+    '',
+    '## Indexation',
+    '- We will align indexation to the Authority’s required approach. If unspecified, we propose a clearly defined annual review mechanism and documented manufacturer price-change evidence.',
+    '',
+    '## Open-book principles',
+    '- Where requested by the Authority, we will support open-book review for agreed categories (e.g., pass-through specialist items).',
+    '',
+    '## Sell-only rule',
+    '- Customer-facing outputs show sell prices only (no cost/trade).'
   ]));
 
   writeText(path.join(outDir, 'tender-response-pack.md'), mk(`Tender Submission Response Pack — ${info.contractRef}`, [
@@ -184,11 +246,12 @@ function main() {
     '',
     '## 7. Pricing Submission',
     'This pack includes a sell-only pricing template for completion: `pricing-schedule-sell-template.csv` and `pricing-notes.md`.',
+    'See also: `pricing-methodology.md`.',
     '',
     '## 8. Required Submissions Checklist (per ITT)',
     '- Tender response document (this pack).',
     '- Pricing schedule (template provided).',
-    '- Policies and certifications (to attach).',
+    '- Policies and certifications (see `evidence-register.md`).',
     '- Evidence of experience + 3 case studies (see `case-studies.md`).',
     '- Conflict of interest declaration (to attach/complete).'
   ].filter(Boolean)));
@@ -210,6 +273,8 @@ function main() {
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
         '--include',
+        path.join(outDir, 'evidence-register.md'),
+        '--include',
         path.join(outDir, 'key-personnel.md'),
         '--include',
         path.join(outDir, 'mobilisation-plan-90-days.md'),
@@ -219,6 +284,8 @@ function main() {
         path.join(outDir, 'social-value.md'),
         '--include',
         path.join(outDir, 'pricing-notes.md'),
+        '--include',
+        path.join(outDir, 'pricing-methodology.md'),
         '--include',
         path.join(outDir, 'case-studies.md')
       ],
