@@ -24,7 +24,10 @@ function csvEscape(v) {
 function main() {
   const bomJsonPath = process.argv[2] || path.join(__dirname, '../../tender-qna/bridport-hospital/bom.json');
   const outDir = process.argv[3] || path.join(__dirname, '../../tender-qna/bridport-hospital');
-  const markupPct = process.argv[4] ? toNum(process.argv[4]) : null; // optional default markup
+  const markupPct =
+    process.argv[4]
+      ? toNum(process.argv[4])
+      : (process.env.TENDER_DEFAULT_MARKUP_PCT ? toNum(process.env.TENDER_DEFAULT_MARKUP_PCT) : null); // optional default markup
 
   if (!fs.existsSync(bomJsonPath)) throw new Error(`Missing BOM json: ${bomJsonPath}`);
   fs.mkdirSync(outDir, { recursive: true });
@@ -39,7 +42,8 @@ function main() {
     const unitCost = toNum(m.costPrice);
     const unitTrade = toNum(m.tradePrice);
     const appliedMarkup = markupPct !== null ? markupPct : null;
-    const unitSell = (unitCost !== null && appliedMarkup !== null) ? unitCost * (1 + appliedMarkup / 100) : null;
+    const sellBasis = unitCost ?? unitTrade ?? null; // prefer cost if present, else trade
+    const unitSell = (sellBasis !== null && appliedMarkup !== null) ? sellBasis * (1 + appliedMarkup / 100) : null;
     const lineSell = (unitSell !== null) ? unitSell * qty : null;
     return {
       category: 'Hardware',
@@ -54,7 +58,8 @@ function main() {
       markupPct: appliedMarkup,
       unitSell: unitSell,
       lineSell: lineSell,
-      notes: r.matchType || ''
+      notes: r.matchType || '',
+      sources: Array.isArray(r.sources) ? r.sources.join('+') : ''
     };
   });
 
@@ -67,8 +72,8 @@ function main() {
     { category: 'Other', model: 'Maintenance (Year 1 included)', qty: '', simproStockId: '', simproPartNumber: '', description: 'TBC', manufacturer: '', unitTrade: '', unitCost: '', markupPct: '', unitSell: '', lineSell: '', notes: '' }
   );
 
-  // Write CSV
-  const header = [
+  // Write INTERNAL CSV (kept for internal costing only)
+  const headerInternal = [
     'Category',
     'Model',
     'Qty',
@@ -81,12 +86,13 @@ function main() {
     'Markup %',
     'Unit Sell',
     'Line Sell',
-    'Notes'
+    'Notes',
+    'Sources'
   ];
 
-  const csvLines = [header.join(',')];
+  const csvLinesInternal = [headerInternal.join(',')];
   for (const r of matrix) {
-    csvLines.push([
+    csvLinesInternal.push([
       r.category,
       r.model,
       r.qty,
@@ -99,12 +105,40 @@ function main() {
       r.markupPct === null ? '' : (r.markupPct ?? ''),
       money(toNum(r.unitSell)),
       money(toNum(r.lineSell)),
+      r.notes || '',
+      r.sources || ''
+    ].map(csvEscape).join(','));
+  }
+
+  const outCsvInternal = path.join(outDir, 'pricing-matrix-internal.csv');
+  fs.writeFileSync(outCsvInternal, csvLinesInternal.join('\n'), 'utf8');
+
+  // Write SELL-ONLY CSV (customer-facing)
+  const headerSell = [
+    'Category',
+    'Item',
+    'Qty',
+    'Description',
+    'Unit Sell',
+    'Line Sell',
+    'Notes'
+  ];
+
+  const csvLinesSell = [headerSell.join(',')];
+  for (const r of matrix) {
+    csvLinesSell.push([
+      r.category,
+      r.model,
+      r.qty,
+      r.description || r.model,
+      money(toNum(r.unitSell)),
+      money(toNum(r.lineSell)),
       r.notes || ''
     ].map(csvEscape).join(','));
   }
 
-  const outCsv = path.join(outDir, 'pricing-matrix.csv');
-  fs.writeFileSync(outCsv, csvLines.join('\n'), 'utf8');
+  const outCsvSell = path.join(outDir, 'pricing-matrix-sell.csv');
+  fs.writeFileSync(outCsvSell, csvLinesSell.join('\n'), 'utf8');
 
   // Minimal markdown summary
   const md = [];
@@ -114,12 +148,15 @@ function main() {
   md.push('');
   md.push('- Hardware lines were mapped from the BOM to Simpro catalogue items where possible.');
   md.push('- Labour/other lines are placeholders for now.');
+  md.push(`- Sell pricing uses markup %: ${markupPct === null ? 'TBC (set TENDER_DEFAULT_MARKUP_PCT or pass as 3rd arg)' : `${markupPct}%`}.`);
   md.push('');
-  md.push(`Generated file: \`pricing-matrix.csv\``);
+  md.push(`Generated files: \`pricing-matrix-sell.csv\` (customer-facing) and \`pricing-matrix-internal.csv\` (internal).`);
   fs.writeFileSync(path.join(outDir, 'pricing-matrix.md'), md.join('\n'), 'utf8');
 
   // eslint-disable-next-line no-console
-  console.log(`Wrote ${outCsv}`);
+  console.log(`Wrote ${outCsvSell}`);
+  // eslint-disable-next-line no-console
+  console.log(`Wrote ${outCsvInternal}`);
 }
 
 main();

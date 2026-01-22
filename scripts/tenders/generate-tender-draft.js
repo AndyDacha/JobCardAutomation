@@ -87,10 +87,16 @@ function mdEscape(s) {
 
 function buildHardwareTotals(pricingRows) {
   const hardware = pricingRows.filter((r) => String(r.Category || '').toLowerCase() === 'hardware');
-  const totalCost = hardware.reduce((sum, r) => sum + (toNum(r['Unit Cost']) ?? 0) * (toNum(r.Qty) ?? 0), 0);
-  const totalTrade = hardware.reduce((sum, r) => sum + (toNum(r['Unit Trade']) ?? 0) * (toNum(r.Qty) ?? 0), 0);
-  const unmapped = hardware.filter((r) => !String(r['Simpro Part Number'] || '').trim() && !String(r['Simpro Stock ID'] || '').trim());
-  return { totalCost, totalTrade, hardwareCount: hardware.length, unmappedCount: unmapped.length };
+  // SELL-only: sum Line Sell (preferred), fallback to Unit Sell × Qty.
+  const totalSell = hardware.reduce((sum, r) => {
+    const line = toNum(r['Line Sell']);
+    if (line !== null) return sum + line;
+    const unit = toNum(r['Unit Sell']);
+    const qty = toNum(r.Qty) ?? 0;
+    return sum + ((unit !== null) ? unit * qty : 0);
+  }, 0);
+  const missingSell = hardware.filter((r) => (toNum(r['Line Sell']) === null && toNum(r['Unit Sell']) === null));
+  return { totalSell, hardwareCount: hardware.length, missingSellCount: missingSell.length };
 }
 
 function parseArgs(argv) {
@@ -117,7 +123,7 @@ function main() {
   const outDir = (args.outDir && args.outDir[0]) || args._[0];
   const title = (args.title && args.title[0]) || args._[1] || 'Tender Response Draft';
   const bomPath = (args.bom && args.bom[0]) || path.join(outDir || '.', 'bom.json');
-  const pricingPath = (args.pricing && args.pricing[0]) || path.join(outDir || '.', 'pricing-matrix.csv');
+  const pricingPath = (args.pricing && args.pricing[0]) || path.join(outDir || '.', 'pricing-matrix-sell.csv');
   const evidenceIndexPath = (args.evidenceIndex && args.evidenceIndex[0]) || '';
 
   const append = (args.append || []).map((s) => {
@@ -171,12 +177,11 @@ function main() {
   if (pricingRows.length) {
     lines.push('## 4. Commercial Offer (Pricing Matrix)');
     lines.push('');
-    lines.push('- Hardware totals below are calculated from the pricing matrix using **Unit Cost/Trade × Qty**.');
-    lines.push(`- **Hardware total (trade)**: £${money(totals.totalTrade)}`);
-    lines.push(`- **Hardware total (cost)**: £${money(totals.totalCost)}`);
-    if (totals.unmappedCount > 0) lines.push(`- **Unmapped hardware lines**: ${totals.unmappedCount} (needs Simpro stock item confirmation)`);
+    lines.push('- Pricing shown is **sell price** only.');
+    lines.push(`- **Hardware total (sell)**: £${money(totals.totalSell)}`);
+    if (totals.missingSellCount > 0) lines.push(`- **Lines missing sell price**: ${totals.missingSellCount} (set markup/pricing before submission)`);
     lines.push('');
-    lines.push('The detailed line-by-line pricing matrix is available in: `pricing-matrix.csv` (includes placeholders for labour/commissioning/cabling/maintenance).');
+    lines.push('The detailed line-by-line pricing matrix is available in: `pricing-matrix-sell.csv` (includes placeholders for labour/commissioning/cabling/maintenance).');
     lines.push('');
   }
 
