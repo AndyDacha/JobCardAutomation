@@ -62,7 +62,22 @@ async function main() {
   const files = fs.existsSync(target) && fs.statSync(target).isDirectory() ? walk(target) : [target];
   const candidates = files.filter((f) => /\.(pdf|docx|doc)$/i.test(f));
 
-  const index = [];
+  const indexPath = path.join(outDir, '_index.json');
+  const existingIndexArr = fs.existsSync(indexPath)
+    ? (() => {
+        try {
+          const raw = fs.readFileSync(indexPath, 'utf8');
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })()
+    : [];
+
+  const existingByFile = new Map(existingIndexArr.map((x) => [String(x?.file || ''), x]));
+  const index = [...existingIndexArr];
+
   for (const f of candidates) {
     const rel = path.relative(path.join(__dirname, '../..'), f);
     try {
@@ -70,17 +85,28 @@ async function main() {
       const safeName = rel.replace(/[\\/]/g, '__').replace(/[^a-zA-Z0-9._-]/g, '_');
       const outPath = path.join(outDir, safeName + '.txt');
       fs.writeFileSync(outPath, text, 'utf8');
-      index.push({ file: rel, out: path.relative(path.join(__dirname, '../..'), outPath), chars: text.length });
+      const entry = { file: rel, out: path.relative(path.join(__dirname, '../..'), outPath), chars: text.length };
+      if (existingByFile.has(rel)) {
+        const idx = index.findIndex((x) => String(x?.file || '') === rel);
+        if (idx >= 0) index.splice(idx, 1);
+      }
+      index.push(entry);
       // eslint-disable-next-line no-console
       console.log(`OK ${rel} -> ${outPath} (${text.length} chars)`);
     } catch (e) {
-      index.push({ file: rel, out: null, chars: 0, error: e?.message || String(e) });
+      const entry = { file: rel, out: null, chars: 0, error: e?.message || String(e) };
+      if (existingByFile.has(rel)) {
+        const idx = index.findIndex((x) => String(x?.file || '') === rel);
+        if (idx >= 0) index.splice(idx, 1);
+      }
+      index.push(entry);
       // eslint-disable-next-line no-console
       console.log(`ERR ${rel}: ${e?.message || e}`);
     }
   }
 
-  fs.writeFileSync(path.join(outDir, '_index.json'), JSON.stringify(index, null, 2), 'utf8');
+  index.sort((a, b) => String(a?.file || '').localeCompare(String(b?.file || '')));
+  fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf8');
 }
 
 main().catch((e) => {
