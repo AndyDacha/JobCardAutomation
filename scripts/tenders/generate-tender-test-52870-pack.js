@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -315,6 +316,45 @@ function main() {
     '- Defined scope, method statement integration, and single point of accountability via our Contract Manager.',
     '- Pricing transparency aligned to the contract’s requirements (no hidden cost structures).'
   ]));
+
+  // Build a single submission-ready PDF (pack + quality answers).
+  // Note: pricing spreadsheet still needs to be submitted separately to the portal.
+  try {
+    const pdfOut = path.join(outDir, 'tender-submission.pdf');
+    const pdfScript = path.join(__dirname, './build-submission-pdf.js');
+    execFileSync(
+      process.execPath,
+      [
+        pdfScript,
+        '--outDir',
+        outDir,
+        '--title',
+        `Tender Submission — Project ${info.projectNo}`,
+        '--outPdf',
+        pdfOut,
+        '--include',
+        path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'quality-q1-resources.md'),
+        '--include',
+        path.join(outDir, 'quality-q2-call-out.md'),
+        '--include',
+        path.join(outDir, 'quality-q3-incident-response.md'),
+        '--include',
+        path.join(outDir, 'quality-q4-contract-management.md'),
+        '--include',
+        path.join(outDir, 'quality-q5-method-statement-1.md'),
+        '--include',
+        path.join(outDir, 'quality-q6-method-statement-2.md'),
+        '--include',
+        path.join(outDir, 'quality-q7-subcontractors.md')
+      ],
+      { stdio: 'inherit' }
+    );
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`PDF generation failed: ${e?.message || e}`);
+  }
 
   // eslint-disable-next-line no-console
   console.log(`Wrote tender pack to ${outDir}`);
