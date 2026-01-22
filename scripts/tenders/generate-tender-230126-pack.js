@@ -81,8 +81,46 @@ function main() {
     '- Incident notification within 24 hours (as required).',
     '',
     '## 5. Contractual acceptance (summary)',
-    'See `deviations-log.md`. Unless stated otherwise, we confirm full acceptance of the Authority’s Terms & Conditions including liquidated damages and termination provisions.',
-    ''
+    'Unless explicitly stated in the Deviations Log below, we confirm full acceptance of the Authority’s Terms & Conditions including liquidated damages and termination provisions.',
+    '',
+    '### Deviations Log (in-document extract)',
+    '',
+    '| # | Requirement / Clause | Deviation | Mitigation / Notes |',
+    '|---:|---|---|---|',
+    '| 0 | (None) | **No deviations proposed at this time** | Full acceptance confirmed |',
+    '',
+    '## 6. Pricing approach (summary)',
+    'The RFP requires fixed pricing for the duration of the contract and pricing broken down by site and system.',
+    '',
+    'We confirm:',
+    '- All prices will be fixed for the duration (no post-award price increases).',
+    '- Site conditions, cabling routes, and infrastructure constraints are deemed included.',
+    '- Pricing will be broken down by site (A–H) and system (CCTV / Access Control / Intruder / Integration / Temporary works).',
+    '',
+    'The attached pricing schedule template (`pricing-schedule-sell-template.csv`) is structured accordingly for completion.',
+    '',
+    '## 7. Intruder alarm approach (additional detail)',
+    'The intruder solution will be survey-led, risk-based, and compliant with Grade 2/3 requirements per site.',
+    '',
+    '- **Detection types**: PIR for general areas, dual-tech (PIR/MW) for higher-risk/variable environments, contacts on controlled openings, and perimeter detection where required.',
+    '- **Zoning & partitioning**: aligns to operational use and supports staged arming to reduce nuisance alarms.',
+    '- **Dual-path signalling**: IP + cellular, supervised paths with local buffering of events during transient comms issues.',
+    '- **Integration**: intruder events can trigger CCTV bookmarks/alarms and camera call-up/recording profiles to support evidential review and incident logging.',
+    '',
+    '## 8. Programme (indicative phasing)',
+    'This is an indicative programme aligned to replacement/new-install/zero-downtime constraints and will be refined post-survey.',
+    '',
+    '| Workstream | Sites | Indicative duration | Notes |',
+    '|---|---|---|---|',
+    '| Mobilisation & governance | All | 2 weeks | Access planning, comms plan, change control, H&S onboarding |',
+    '| Mandatory surveys (at tenderer risk) | All | 3–5 weeks | Restricted access sites scheduled; comms-room validations; door schedule capture |',
+    '| Design + Authority approvals | All | 4–6 weeks | VLAN/IP approvals; DPIA inputs; interface control documents |',
+    '| Replacement installs (phased, maintain coverage) | A, B, F | 6–10 weeks | Staged cutovers; temporary coverage; parallel-run where required |',
+    '| New installs | C, D, G | 5–8 weeks | 24/7 constraints at D addressed via planned windows |',
+    '| Partial replacement (zero downtime) | E | 6–12 weeks | Parallel-running and failover recording during cutovers |',
+    '| Air-gapped site build | H | 4–6 weeks | Strict segregation; no remote access |',
+    '| Commissioning + SAT + training | All | 2–4 weeks | Acceptance testing; evidential export verification; handover |',
+    '| Documentation & handover closeout | All | 2 weeks | As-fitted, asset registers, backups, O&M manuals |'
   ].filter(Boolean)));
 
   // --- Compliance matrix (pass/fail oriented)
@@ -146,7 +184,13 @@ function main() {
     '| F | Grade 3 | Dual-path | Replacement & expansion |',
     '| C | Grade 2 | Dual-path | New install |',
     '| G | Grade 2 | Dual-path | New install |',
-    '| H | TBC | Dual-path | Air-gapped network constraints |'
+    '| H | TBC | Dual-path | Air-gapped network constraints |',
+    '',
+    '### Intruder detail (method summary)',
+    '- Detection selection will be risk- and environment-led (PIR / dual-tech / contacts / perimeter as required).',
+    '- Partitioning and zoning will be aligned to operational use to enable staged arming and reduce nuisance alarms.',
+    '- Dual-path signalling will be supervised (IP + cellular) with auditable event logs.',
+    '- Integration to CCTV will support alarm-triggered recording profiles, camera call-up, and evidential audit.'
   ]));
 
   // --- Network diagrams (logical)
@@ -195,17 +239,32 @@ function main() {
     '- Staged cutover to maintain evidential recording continuity.'
   ]));
 
+  // --- Risk register (required by RFP Section 13)
+  writeText(path.join(outDir, 'risk-register.md'), mk('Risk Register', [
+    '| Risk | Impact | Likelihood | Mitigation | Owner |',
+    '|---|---|---:|---|---|',
+    '| Zero downtime / zero-loss-of-coverage constraints | High | Med | Phased cutovers; parallel-run; temporary coverage; acceptance testing before decommissioning | Technical Lead |',
+    '| Restricted access sites (Police liaison / secure archive) | Med | Med | Early access planning; escorted works; cleared staff; pre-agreed windows | Installation Manager |',
+    '| Network constraints / approvals (VLAN/IP/firewall) | High | Med | Early workshops with Authority IT; interface control docs; staged deployment; rollback plans | Technical Lead |',
+    '| Data protection / DPIA requirements | High | Low | DPIA support; encryption; access logging; incident response within 24h | Contract Manager |',
+    '| Supply chain lead times / obsolescence | Med | Med | Approved manufacturer partnerships; alternates; procurement plan; spares strategy | Technical Lead |',
+    '| 24/7 operational constraints (Manufacturing) | Med | Med | Works windows; shift planning; safe systems; noise/dust controls | Installation Manager |'
+  ]));
+
   // --- Programme (high-level)
   writeText(path.join(outDir, 'programme.md'), mk('Programme (high-level)', [
-    '| Phase | Duration | Outputs |',
-    '|---|---|---|',
-    '| Mobilisation | 2 weeks | Governance, access planning, site visit scheduling, comms plan |',
-    '| Mandatory surveys | 2–4 weeks | Measured surveys, door schedules draft, network constraints confirmed |',
-    '| Design & approvals | 3–6 weeks | Designs, network diagrams, DPIA inputs, build packs, procurement plan |',
-    '| Installation (phased) | TBC by site | Works packages per site with zero-loss-of-coverage controls |',
-    '| Commissioning & SAT | TBC | Acceptance testing, evidential export verification, training |',
-    '| Handover | 1–2 weeks | As-fitted docs, asset registers, backups, O&M manuals |',
-    '| Maintenance mobilisation | 2 weeks | Planned maintenance schedule + reactive call-out process |'
+    '| Workstream | Sites | Indicative duration | Outputs |',
+    '|---|---|---|---|',
+    '| Mobilisation & governance | All | 2 weeks | Governance, access planning, comms plan, change control |',
+    '| Mandatory surveys (at tenderer risk) | All | 3–5 weeks | Surveys, draft door schedules, network constraints confirmed |',
+    '| Design + approvals | All | 4–6 weeks | Designs, network diagrams, DPIA inputs, build packs, procurement plan |',
+    '| Replacement installs (phased) | A, B, F | 6–10 weeks | Staged cutovers; temporary coverage; parallel-run where required |',
+    '| New installs | C, D, G | 5–8 weeks | Live environment controls; 24/7 constraints addressed |',
+    '| Partial replacement (zero downtime) | E | 6–12 weeks | Parallel-run and failover during cutovers |',
+    '| Air-gapped build | H | 4–6 weeks | Strict segregation; local-only operations |',
+    '| Commissioning & SAT | All | 2–4 weeks | Acceptance testing, evidential export verification, training |',
+    '| Handover documentation | All | 2 weeks | As-fitted docs, asset registers, backups, O&M manuals |',
+    '| Maintenance mobilisation | All | 2 weeks | Planned maintenance schedule + reactive call-out process |'
   ]));
 
   // --- Assumptions & deviations
