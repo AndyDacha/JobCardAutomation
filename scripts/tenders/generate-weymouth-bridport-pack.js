@@ -95,29 +95,116 @@ function toMoney(n) {
   return `£${v.toFixed(2)}`;
 }
 
+function computePricingModel({ items }) {
+  const baseRows = items.map((it) => ({ ...it, kind: 'base' }));
+
+  const sumSite = (site) => baseRows.filter((r) => r.site === site).reduce((a, r) => a + (Number(r.sell) || 0), 0);
+  const baseTotal = baseRows.reduce((a, r) => a + (Number(r.sell) || 0), 0);
+
+  // Pricing model assumptions (engineering judgement + tender requirements).
+  // Important: these are NOT copied from past quotes; they are a consistent, transparent pricing approach
+  // to ensure project-level obligations are not missed when only schedule lines are available.
+  const ASSUMPTIONS = {
+    labourPortionPct: 0.30, // share of each "supply & install" line we treat as labour for uplifts
+    weymouthOutOfHoursLabourMultiplier: 1.50, // ITT/quote template states Weymouth UTC may require night works
+    surveyAndDesignAllowancePerSite: 1250.0, // measured survey + plan markups per site
+    trainingAndHandoverAllowancePerSite: 500.0, // operator training + handover session per site
+    contingencyPct: 0.08 // covers unknowns: containment constraints, access, minor civils, fire-stopping interfaces
+  };
+
+  const bridportBase = sumSite('Bridport Community Hospital');
+  const weymouthBase = sumSite('Weymouth Community Hospital');
+
+  // Out-of-hours uplift applies to labour portion only (not materials).
+  const weymouthOOHLabourUplift =
+    weymouthBase * ASSUMPTIONS.labourPortionPct * (ASSUMPTIONS.weymouthOutOfHoursLabourMultiplier - 1);
+
+  const surveyAndDesign = ASSUMPTIONS.surveyAndDesignAllowancePerSite * 2; // Bridport + Weymouth
+  const trainingAndHandover = ASSUMPTIONS.trainingAndHandoverAllowancePerSite * 2;
+
+  // Contingency applied on base + OOH uplift (keeps it proportional and transparent).
+  const contingencyBase = baseTotal + weymouthOOHLabourUplift + surveyAndDesign + trainingAndHandover;
+  const contingency = contingencyBase * ASSUMPTIONS.contingencyPct;
+
+  const adjustments = [
+    {
+      site: 'Project (Both sites)',
+      description: 'Measured survey + design validation + plan mark-ups (allowance)',
+      sell: surveyAndDesign,
+      kind: 'allowance'
+    },
+    {
+      site: 'Project (Both sites)',
+      description: 'Operator training + handover support (allowance)',
+      sell: trainingAndHandover,
+      kind: 'allowance'
+    },
+    {
+      site: 'Weymouth Community Hospital',
+      description: 'Out-of-hours labour uplift (labour portion only; allowance)',
+      sell: weymouthOOHLabourUplift,
+      kind: 'uplift'
+    },
+    {
+      site: 'Project (Both sites)',
+      description: 'Project contingency (access/containment/fire interfaces/unknowns) (allowance)',
+      sell: contingency,
+      kind: 'contingency'
+    }
+  ].filter((x) => Number(x.sell) > 0.005);
+
+  const grandTotal = baseTotal + adjustments.reduce((a, r) => a + (Number(r.sell) || 0), 0);
+
+  return {
+    assumptions: ASSUMPTIONS,
+    base: { rows: baseRows, total: baseTotal, bridport: bridportBase, weymouth: weymouthBase },
+    adjustments,
+    grandTotal
+  };
+}
+
 function buildPricingOutputs({ outDir, items }) {
+  const model = computePricingModel({ items });
+
   const csvRows = [];
   csvRows.push(['Site', 'Description', 'Sell Amount (GBP)'].map(csvEscape).join(','));
-  for (const it of items) {
-    csvRows.push([it.site, it.description, String(it.sell.toFixed(2))].map(csvEscape).join(','));
+  for (const it of model.base.rows) {
+    csvRows.push([it.site, it.description, String(Number(it.sell).toFixed(2))].map(csvEscape).join(','));
+  }
+  for (const it of model.adjustments) {
+    csvRows.push([it.site, it.description, String(Number(it.sell).toFixed(2))].map(csvEscape).join(','));
   }
   writeText(path.join(outDir, 'pricing-summary-sell.csv'), csvRows.join('\n'));
 
   const md = [];
   md.push('# Pricing Summary (sell-only)');
   md.push('');
-  md.push('This summary is generated from the provided tender documents/quote template and is **sell-only** (no cost/trade shown). Final commercial submission must be completed in the Trust’s Pricing Matrix (Document 6) in the Delta portal.');
+  md.push('This summary is generated from the provided tender documents and is **sell-only** (no cost/trade shown). Final commercial submission must be completed in the Trust’s Pricing Matrix (Document 6) in the Delta portal.');
+  md.push('');
+  md.push('## Pricing approach (assumptions)');
+  md.push('');
+  md.push('To avoid underpricing when schedules list only camera-by-camera lines, we add transparent project allowances required by the ITT (survey/design, training/handover) plus an out-of-hours uplift for Weymouth where stated, and a contingency allowance.');
+  md.push('');
+  md.push(`- Labour portion used for uplifts: **${Math.round(model.assumptions.labourPortionPct * 100)}%** of supply/install lines`);
+  md.push(`- Weymouth out-of-hours labour multiplier: **${model.assumptions.weymouthOutOfHoursLabourMultiplier.toFixed(2)}×** (labour portion only)`);
+  md.push(`- Survey/design allowance per site: **${toMoney(model.assumptions.surveyAndDesignAllowancePerSite)}**`);
+  md.push(`- Training/handover allowance per site: **${toMoney(model.assumptions.trainingAndHandoverAllowancePerSite)}**`);
+  md.push(`- Contingency: **${Math.round(model.assumptions.contingencyPct * 100)}%** of base + allowances`);
   md.push('');
   md.push('| Site | Description | Sell |');
   md.push('|---|---|---:|');
-  let total = 0;
-  for (const it of items) {
-    total += it.sell;
+  for (const it of model.base.rows) {
     md.push(`| ${it.site} | ${it.description} | ${toMoney(it.sell)} |`);
   }
-  md.push(`|  | **Total (from extracted lines)** | **${toMoney(total)}** |`);
+  md.push(`|  | **Base total (from schedule lines)** | **${toMoney(model.base.total)}** |`);
+  for (const it of model.adjustments) {
+    md.push(`| ${it.site} | **${it.description}** | **${toMoney(it.sell)}** |`);
+  }
+  md.push(`|  | **Total (base + allowances)** | **${toMoney(model.grandTotal)}** |`);
   md.push('');
   writeText(path.join(outDir, 'pricing-summary.md'), md.join('\n'));
+
+  return model;
 }
 
 function main() {
@@ -152,7 +239,7 @@ function main() {
   const key = (x) => `${x.site}||${x.description}||${x.sell}`;
   const itemsUniq = uniq(items.map((x) => ({ k: key(x), x }))).map((o) => o.x);
 
-  buildPricingOutputs({ outDir, items: itemsUniq });
+  const pricingModel = buildPricingOutputs({ outDir, items: itemsUniq });
 
   const pack = [];
   pack.push(`# Tender Submission Response Pack — ${info.tenderTitle}`);
@@ -219,6 +306,8 @@ function main() {
   pack.push('');
   pack.push('- The Trust’s Pricing Matrix (Document 6) must be completed and submitted via the portal.');
   pack.push('- We provide a sell-only pricing summary as an attachment: `pricing-summary-sell.csv`.');
+  pack.push('- Pricing summary includes transparent project allowances (survey/design, training/handover, out-of-hours uplift where stated, contingency). These are assumptions for tender completeness and must be validated against the portal Pricing Matrix.');
+  pack.push(`- Pricing summary total (sell-only, ex VAT) from this pack: **${toMoney(pricingModel.grandTotal)}**.`);
   pack.push('');
   pack.push('## 6. Required ITT Documents (checklist)');
   pack.push('');
