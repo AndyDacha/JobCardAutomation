@@ -134,24 +134,49 @@ function main() {
   pack.push('');
   pack.push('Dacha SSI submits this tender to deliver a safe, responsive, and fully auditable CCTV term service solution across the East Riding estate. Our delivery model is designed to meet the contract’s programmed inspection regime, reactive response times, and incident support requirements, while maintaining strict compliance with data protection and relevant CCTV standards.');
   pack.push('');
-  pack.push('## 2. Understanding of Scope (as stated in Volume 1 Part 6)');
+  pack.push('## 2. Confirmation Statements (explicit yes/no)');
   pack.push('');
-  pack.push('- Initial inspection & testing of all systems in first 6 months, including verification of existing information and creation of a contract asset register.');
-  pack.push('- Periodic inspection & testing at 6-monthly programmed intervals (2 visits per annum), plus additional visits for monitored systems where required.');
-  pack.push('- Reactive maintenance with defined response codes and evidential incident support attendance.');
-  pack.push('- CCTV monitoring service for business critical sites, including audio challenge and reporting.');
-  pack.push('- Optional installations/modifications and documentation updates (‘as installed’ drawings, log books, incident packs).');
+  pack.push('This section is included to remove ambiguity and allow evaluators to quickly confirm compliance.');
   pack.push('');
-  pack.push('## 3. Compliance & Standards');
+  pack.push('| Requirement | Our answer | Evidence / where covered |');
+  pack.push('|---|---|---|');
+  pack.push('| Provide CCTV term service (install / maintain / periodic inspect / service) | **YES** | Section 3; Q1–Q7 |');
+  pack.push('| Enhanced DBS checks for operatives | **YES** | Vol 1 Part 6.1.2; Q1 |');
+  pack.push('| Comply with GDPR / DPA and CCTV standards | **YES** | Section 6; Q3; Q6 |');
+  pack.push('| Meet response codes A–E | **YES** | Section 5; Q2; Q3 |');
+  pack.push('| Provide quarterly reporting + 5% self-audit | **YES** | Section 4; Q4 |');
+  pack.push('| Provide CCTV monitoring for critical sites (or subcontract to compliant ARC) | **YES** | Section 7; Q6 |');
   pack.push('');
-  pack.push('We will deliver works in accordance with statutory requirements and the standards identified in the tender documents, including (non-exhaustive):');
-  for (const s of standards) pack.push(`- ${s}`);
+
+  pack.push('## 3. Scope Alignment (Volume 1 Part 6 – question mirroring)');
   pack.push('');
-  pack.push('We acknowledge the contract’s requirements for data protection, secure handling of incident evidence, and cooperation with the Council’s processes (FOI, transparency, IR35, etc.).');
+  pack.push('**Tender requirement:** Provide the works described in Volume 1 Part 6 (Objectives 1–6).');
   pack.push('');
-  pack.push('## 4. Reactive Maintenance & Incident Response');
+  pack.push('**Our response (direct):** We will deliver the following, as required by the Scope and Objective clauses:');
   pack.push('');
-  pack.push('### 4.1 Response codes');
+  pack.push('- **Objective One – Initial Inspection & Testing (first 6 months): YES.** Programme, inspect/test to standards, verify information, create/maintain contract asset register.');
+  pack.push('- **Objective Two – Periodic Inspection & Testing (6‑monthly): YES.** Two visits per annum (plus monitored site visits where specified).');
+  pack.push('- **Objective Three – CCTV Monitoring: YES.** Monitoring with audio challenge and reporting via an accredited monitoring centre meeting tender minimums (or continue existing arrangement where instructed).');
+  pack.push('- **Objective Four – Installations/Modifications: YES.** Delivered to standards; priced via the tender price list mechanism.');
+  pack.push('- **Objective Five – Reactive Maintenance / Call‑Out: YES.** Attend within response codes; provide required site visit reporting and evidential incident attendance.');
+  pack.push('- **Objective Six – Additional Services: YES.** As‑installed drawings/log books/incident packs/user responsibilities when instructed.');
+  pack.push('');
+
+  pack.push('## 4. Governance, Reporting & Auditability (tender mirroring)');
+  pack.push('');
+  pack.push('**Tender requirement:** Appointment system, log books, quarterly reports, 5% self-audit minimum, KPI monitoring.');
+  pack.push('');
+  pack.push('**Our response (direct):** We will operate the appointment system, maintain log books, deliver quarterly reports in the required structure, and complete self-audits (minimum 5% per annum) with advance notice to allow ERYC attendance.');
+  pack.push('');
+
+  pack.push('## 5. Reactive Maintenance & Incident Response (tender mirroring)');
+  pack.push('');
+  pack.push('**Tender requirement:** Meet response codes A–E; provide call‑out and labour rates in the council price list; provide incident response for evidential downloads.');
+  pack.push('');
+  pack.push('**Our response (direct):** We confirm we will meet the response codes and provide auditable attendance and incident handling aligned to the Data Protection Act/GDPR.');
+  pack.push('');
+
+  pack.push('### 5.1 Response codes');
   pack.push('');
   pack.push('| Code | Required response time |');
   pack.push('|---|---|');
@@ -161,23 +186,34 @@ function main() {
   pack.push(`| D | ${responseCodes.D || 'Within 5 Working Days'} |`);
   pack.push(`| E | ${responseCodes.E || 'Within 20 Working Days'} |`);
   pack.push('');
-  pack.push('### 4.2 Call-out process (summary)');
+  pack.push('### 5.2 Call-out process (direct answer)');
   pack.push('');
-  pack.push('- Single point of contact for call-outs, backed by an on-call rota for Response Code A.');
-  pack.push('- Engineers attend with appropriate access equipment and spares where possible to achieve first-visit fix.');
-  pack.push('- Site visit report provided with required fields (reason, times, actions, further actions, site sign-off).');
-  pack.push('- Incident response support includes attendance for evidential downloads and chain-of-custody handling aligned to the Data Incident Management Pack requirements.');
+  pack.push('- **We confirm** a single point of contact for call‑outs and an on‑call rota for Response Code A.');
+  pack.push('- **We confirm** engineers will attend with appropriate access equipment and aim for first‑visit fix where practicable.');
+  pack.push('- **We confirm** site visit reports will include all mandatory fields and premises manager sign‑off.');
+  pack.push('- **We confirm** incident response attendance will follow chain‑of‑custody controls aligned to the tender’s incident pack requirements.');
   pack.push('');
-  pack.push('## 5. Programmed Inspections, Reporting & Audit Trail');
+
+  pack.push('## 6. Compliance & Standards (explicit mapping)');
   pack.push('');
-  pack.push('- Appointment system: notifications issued at least 10 working days in advance where applicable, with the Service Manager copied for audit.');
-  pack.push('- Log books maintained and completed at every inspection/repair visit.');
-  pack.push('- Quarterly reporting provided in the required format (planned vs actual, repairs, response performance, audits, H&S incidents).');
-  pack.push('- Self-audit: minimum 5% of completed orders per annum, carried out monthly with advance notice to allow ERYC attendance.');
+  pack.push('**Tender requirement:** Works must comply with statutory requirements and CCTV/data protection standards.');
   pack.push('');
-  pack.push('## 6. Resources & Contract Management (Quality Questions)');
+  pack.push('**Our response (direct):** We will comply with the following (non-exhaustive list referenced in the tender documents):');
+  for (const s of standards) pack.push(`- ${s}`);
   pack.push('');
-  pack.push('The tender requires the Quality Submission questions Q1–Q7. We provide drafts in the following files (generated pack):');
+  pack.push('We also acknowledge and accept the tender’s procedural requirements (FOI/transparency, IR35, GDPR/DPA processor obligations, KPI regime, and NEC4 governance).');
+  pack.push('');
+
+  pack.push('## 7. CCTV Monitoring (tender mirroring)');
+  pack.push('');
+  pack.push('**Tender requirement:** Provide monitoring, audio challenge and reporting via an accredited monitoring centre (or approved specialist provider).');
+  pack.push('');
+  pack.push('**Our response (direct):** We will provide monitoring and weekly reporting to the Service Manager and site managers, and ensure any monitoring partner meets the tender’s stated minimum accreditations and staffing requirements.');
+  pack.push('');
+
+  pack.push('## 8. Quality Submission (Volume 2 Part 2 – question-by-question)');
+  pack.push('');
+  pack.push('The tender requires Quality Questionnaire Q1–Q7 as separate files. We provide direct answers in:');
   pack.push('');
   pack.push('- `quality-q1-resources.md`');
   pack.push('- `quality-q2-call-out.md`');
@@ -187,9 +223,12 @@ function main() {
   pack.push('- `quality-q6-method-statement-2.md`');
   pack.push('- `quality-q7-subcontractors.md`');
   pack.push('');
-  pack.push('## 7. Pricing (Sell-only)');
+
+  pack.push('## 9. Pricing (sell-only template for completion)');
   pack.push('');
-  pack.push('The tender’s financial evaluation uses the “Tendered Total of the Prices” and estimated quantities. The council’s spreadsheet must be completed. For convenience we generated a **sell-only** template list of the referenced price codes:');
+  pack.push('**Tender requirement:** Complete the council’s price list spreadsheet (no external links).');
+  pack.push('');
+  pack.push('**Our response (direct):** We will complete the council spreadsheet. For convenience, we generated a **sell-only** template list of referenced price codes:');
   pack.push('');
   pack.push('- `price-list-sell-template.csv`');
   pack.push('');
@@ -197,13 +236,13 @@ function main() {
   pack.push('- Rates must be inclusive of obligations in the contract and will be adjusted for out-of-hours at 1.3× where instructed by the Service Manager.');
   pack.push('- Where plant/materials are to be reimbursed at net invoice plus fee %, this must align to Contract Data Part 2 “fee percentage”.');
   pack.push('');
-  pack.push('## 8. Key tender thresholds acknowledged');
+  pack.push('## 10. Key tender thresholds acknowledged');
   pack.push('');
   pack.push('- Minimum insurance levels stated: £5,000,000 for property / public liability; £5,000,000 employers liability.');
   pack.push('- PAS91 minimum annual turnover threshold stated: £216,000 (with supplementary provisions if below).');
   pack.push('- DBS: Enhanced DBS checks required for operatives working on this contract.');
   pack.push('');
-  pack.push('## 9. Manufacturer coverage');
+  pack.push('## 11. Manufacturer coverage');
   pack.push('');
   pack.push('We acknowledge the council’s listed CCTV manufacturers and will ensure competent coverage through training and/or specialist subcontract support where necessary:');
   pack.push('');
@@ -278,7 +317,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q1-resources.md'), mk('Q1 – Resources', [
-    'We will resource the contract with a dedicated Contract Manager (single point of contact), a planned maintenance scheduling coordinator, and a multi-skilled engineering team capable of CCTV inspections, minor repairs, configuration, and evidence handling.',
+    '**Tender question:** Q1 – Resources.',
+    '',
+    '**Answer (direct):** We will resource the contract with a dedicated Contract Manager (single point of contact), a planned maintenance scheduling coordinator, and a multi-skilled engineering team capable of CCTV inspections, minor repairs, configuration, and evidence handling.',
     '',
     'Key resourcing controls:',
     '- **Rota planning** aligned to the council’s preferred inspection windows (Apr–Jun and Oct–Dec) and school holiday periods.',
@@ -293,7 +334,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q2-call-out.md'), mk('Q2 – Call Out', [
-    'Our call-out model is designed to meet the contract response codes A–E and provide clear, auditable outcomes.',
+    '**Tender question:** Q2 – Call Out.',
+    '',
+    '**Answer (direct):** Our call-out model is designed to meet the contract response codes A–E and provide clear, auditable outcomes.',
     '',
     'Process:',
     '- Receive instruction (verbal/written) and allocate response code.',
@@ -311,7 +354,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q3-incident-response.md'), mk('Q3 – Incident Response', [
-    'We support ERYC with evidential downloads and incident handling aligned to the Data Protection Act/GDPR and the contract’s incident pack requirements.',
+    '**Tender question:** Q3 – Incident Response.',
+    '',
+    '**Answer (direct):** We support ERYC with evidential downloads and incident handling aligned to the Data Protection Act/GDPR and the contract’s incident pack requirements.',
     '',
     'Key controls:',
     '- **Chain of custody**: documented handling of USB media and evidence bags where applicable.',
@@ -325,7 +370,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q4-contract-management.md'), mk('Q4 – Contract Management', [
-    'Contract governance will be delivered through a named Contract Manager and structured performance reporting.',
+    '**Tender question:** Q4 – Contract Management.',
+    '',
+    '**Answer (direct):** Contract governance will be delivered through a named Contract Manager and structured performance reporting.',
     '',
     'Governance model:',
     '- **Contract Manager**: primary interface with the Service Manager; attends performance meetings and manages escalations.',
@@ -338,7 +385,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q5-method-statement-1.md'), mk('Q5 – Method Statement 1 (Access / Working at Height)', [
-    'This method statement covers safe access to cameras/field equipment at height and working in occupied premises.',
+    '**Tender question:** Q5 – Method Statement 1.',
+    '',
+    '**Answer (direct):** This method statement covers safe access to cameras/field equipment at height and working in occupied premises.',
     '',
     'Controls:',
     '- Site-specific RAMS completed and left/recorded as required.',
@@ -352,7 +401,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q6-method-statement-2.md'), mk('Q6 – Method Statement 2 (Monitoring service / changeover)', [
-    'This method statement covers delivery of CCTV monitoring for business critical sites including any transfer/changeover of monitoring provider.',
+    '**Tender question:** Q6 – Method Statement 2.',
+    '',
+    '**Answer (direct):** This method statement covers delivery of CCTV monitoring for business critical sites including any transfer/changeover of monitoring provider.',
     '',
     'Approach:',
     '- Maintain continuity of monitoring during any provider transition.',
@@ -365,7 +416,9 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'quality-q7-subcontractors.md'), mk('Q7 – Sub-Contractors', [
-    'We will only use subcontractors where specialist OEM support or niche competencies are required (e.g. legacy system programming), and will manage them under NEC4 Clause 24 controls and the council’s minimum standards.',
+    '**Tender question:** Q7 – Sub-Contractors.',
+    '',
+    '**Answer (direct):** We will only use subcontractors where specialist OEM support or niche competencies are required (e.g. legacy system programming), and will manage them under NEC4 Clause 24 controls and the council’s minimum standards.',
     '',
     'Management controls:',
     '- Pre-qualification (H&S, insurance, competence, data protection).',
