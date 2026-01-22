@@ -275,6 +275,15 @@ function main() {
   const catalogCsv = process.argv[3] || path.join(__dirname, '../../Tender Learning/simPRO catalogueExport.csv');
   const outDir = process.argv[4] || path.join(__dirname, '../../tender-qna/bridport-hospital');
 
+  // Assumed defaults for items referenced generically in drawings (no model provided in extract)
+  // These can be changed later once the tender/spec confirms exact make/model.
+  const assumedCatalogPartNumbersByModel = {
+    // "Network switch" (generic) -> assume a 24x PoE+ gigabit smart switch
+    'NETWORK-SWITCH-TBC': 'W128289340', // Omada TL-SG1428PE (catalog Part Number)
+    // "Monitor & Wall bracket" (generic) -> assume Hanwha 22" monitor (bracket not priced separately unless specified)
+    'MONITOR-AND-WALL-BRACKET-TBC': '0910790' // Hanwha SMT-2212 - 22in monitor
+  };
+
   const camDesignPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__NHS_Dorset_-_Bridport_-_Camera_designs.pdf.txt');
   const assetPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Asset_Register_270325.pdf.txt');
   const patchPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Patch_Schedule_Updated_270325.pdf.txt');
@@ -299,8 +308,11 @@ function main() {
   const idxByPart = catalogIndex.idxByPart;
   const catalogRows = catalogIndex.rows;
   const bom = mergedCounts.map((x) => {
-    const exact = pickCatalogMatch(x.model, idxByPart);
-    const looseRaw = exact ? null : pickCatalogMatchLoose(x.model, catalogRows);
+    const assumedPart = assumedCatalogPartNumbersByModel[x.model] || '';
+    const assumed = assumedPart ? pickCatalogMatch(assumedPart, idxByPart) : null;
+
+    const exact = assumed ? null : pickCatalogMatch(x.model, idxByPart);
+    const looseRaw = (assumed || exact) ? null : pickCatalogMatchLoose(x.model, catalogRows);
     const loose = looseRaw
       ? {
           stockId: String(looseRaw['simPRO Stock ID'] || '').trim(),
@@ -315,8 +327,8 @@ function main() {
     return {
       model: x.model,
       qty: x.qty,
-      catalogMatch: exact || loose,
-      matchType: exact ? 'exact_part_number' : (loose ? 'loose_contains' : 'none'),
+      catalogMatch: assumed || exact || loose,
+      matchType: assumed ? 'assumed_catalog_mapping' : (exact ? 'exact_part_number' : (loose ? 'loose_contains' : 'none')),
       sources: x.sources || []
     };
   });
