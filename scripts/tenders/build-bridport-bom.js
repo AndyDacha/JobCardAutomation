@@ -161,20 +161,57 @@ function parsePatchSchedule(patchText) {
   };
 }
 
-function mergeCounts(assetCounts, patchCounts) {
-  // Merge by taking the maximum quantity for each model and recording sources.
-  const map = new Map();
-  for (const x of assetCounts || []) {
-    map.set(x.model, { model: x.model, qty: x.qty, sources: ['asset_register'] });
+function parseBuildDiagram(buildText) {
+  // Extract high-level infrastructure items from the simple build diagram.
+  // Example text includes: "1U - 4BAY - Server - 32TB - RAW" and "Network switch" and "Monitor & Wall bracket".
+  const t = String(buildText || '').replace(/\s+/g, ' ').trim();
+  if (!t) return { counts: [] };
+
+  const counts = new Map();
+
+  const add = (model, qty = 1) => {
+    const m = normModel(model);
+    if (!m) return;
+    counts.set(m, (counts.get(m) || 0) + qty);
+  };
+
+  // Server (we map via loose match to catalog description)
+  if (/1U\s*-\s*4BAY\s*-\s*Server\s*-\s*32TB\s*-\s*RAW/i.test(t) || /4BAY\s*-\s*Server\s*-\s*32TB/i.test(t)) {
+    add('1U-4BAY-SERVER-32TB-RAW', 1);
   }
-  for (const x of patchCounts || []) {
-    const cur = map.get(x.model);
-    if (!cur) {
-      map.set(x.model, { model: x.model, qty: x.qty, sources: ['patch_schedule'] });
-      continue;
+
+  // Network switches – count occurrences as a rough indicator (final model TBD)
+  const switchMatches = t.match(/Network\s+switch/gi) || [];
+  if (switchMatches.length > 0) add('NETWORK-SWITCH-TBC', switchMatches.length);
+
+  // Monitors – count occurrences
+  const monitorMatches = t.match(/Monitor\s*&\s*Wall\s*bracket/gi) || [];
+  if (monitorMatches.length > 0) add('MONITOR-AND-WALL-BRACKET-TBC', monitorMatches.length);
+
+  return {
+    counts: [...counts.entries()].map(([model, qty]) => ({ model, qty }))
+  };
+}
+
+function mergeCounts(sources) {
+  // Merge by taking the maximum quantity for each model across sources and recording which sources mention it.
+  // sources: [{ name, counts }]
+  const map = new Map();
+  for (const src of sources || []) {
+    const name = String(src?.name || '').trim() || 'unknown';
+    const list = Array.isArray(src?.counts) ? src.counts : [];
+    for (const x of list) {
+      const model = String(x?.model || '').trim();
+      const qty = Number(x?.qty || 0);
+      if (!model || !Number.isFinite(qty) || qty <= 0) continue;
+      const cur = map.get(model);
+      if (!cur) {
+        map.set(model, { model, qty, sources: [name] });
+        continue;
+      }
+      cur.qty = Math.max(cur.qty, qty);
+      if (!cur.sources.includes(name)) cur.sources.push(name);
     }
-    cur.qty = Math.max(cur.qty, x.qty);
-    if (!cur.sources.includes('patch_schedule')) cur.sources.push('patch_schedule');
   }
   return [...map.values()].sort((a, b) => b.qty - a.qty || a.model.localeCompare(b.model));
 }
@@ -241,15 +278,22 @@ function main() {
   const camDesignPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__NHS_Dorset_-_Bridport_-_Camera_designs.pdf.txt');
   const assetPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Asset_Register_270325.pdf.txt');
   const patchPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Patch_Schedule_Updated_270325.pdf.txt');
+  const buildPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__NHS_Dorset_-_Bridport_-_Simple_Build_diagram.pdf.txt');
 
   const camDesignText = fs.existsSync(camDesignPath) ? readText(camDesignPath) : '';
   const assetText = fs.existsSync(assetPath) ? readText(assetPath) : '';
   const patchText = fs.existsSync(patchPath) ? readText(patchPath) : '';
+  const buildText = fs.existsSync(buildPath) ? readText(buildPath) : '';
 
   const design = parseCameraDesignModels(camDesignText);
   const assets = parseAssetRegister(assetText);
   const patch = parsePatchSchedule(patchText);
-  const mergedCounts = mergeCounts(assets.counts, patch.counts);
+  const build = parseBuildDiagram(buildText);
+  const mergedCounts = mergeCounts([
+    { name: 'asset_register', counts: assets.counts },
+    { name: 'patch_schedule', counts: patch.counts },
+    { name: 'build_diagram', counts: build.counts }
+  ]);
 
   const catalogIndex = buildCatalogIndex(catalogCsv);
   const idxByPart = catalogIndex.idxByPart;
@@ -283,10 +327,12 @@ function main() {
       cameraDesignExtract: path.basename(camDesignPath),
       assetRegisterExtract: path.basename(assetPath),
       patchScheduleExtract: path.basename(patchPath),
+      buildDiagramExtract: path.basename(buildPath),
       catalogCsv: path.basename(catalogCsv)
     },
     designCandidateModels: design.candidateModels,
     patchScheduleModels: patch.counts,
+    buildDiagramModels: build.counts,
     bom
   };
 
