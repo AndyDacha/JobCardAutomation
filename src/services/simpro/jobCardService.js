@@ -1440,21 +1440,18 @@ export async function getJobCardData(jobId) {
         .map(v => Number(v))
         .filter(v => !Number.isNaN(v));
 
-      // Prioritise the "Enhanced Engineer Work Note" note if present
-      const preferred = filteredList
+      // Prioritise the "Enhanced Engineer Work Note" note if present.
+      // IMPORTANT: if it exists, only use that note for Work Carried Out parsing (avoid merging multiple notes).
+      const enhanced = filteredList
         .map(n => ({
           id: Number(n?.ID || n?.Id || n?.id),
           subject: String(n?.Subject || n?.subject || '')
         }))
         .filter(x => x.id && !Number.isNaN(x.id))
-        .sort((a, b) => {
-          const aPref = /enhanced engineer work note/i.test(a.subject) ? 1 : 0;
-          const bPref = /enhanced engineer work note/i.test(b.subject) ? 1 : 0;
-          return bPref - aPref;
-        })
+        .filter(x => /enhanced engineer work note/i.test(x.subject))
         .map(x => x.id);
 
-      const noteIdsToFetch = (preferred.length > 0 ? preferred : ids).slice(0, 15);
+      const noteIdsToFetch = (enhanced.length > 0 ? enhanced.slice(0, 1) : ids.slice(0, 15));
 
       const chunks = [];
       for (const noteId of noteIdsToFetch) {
