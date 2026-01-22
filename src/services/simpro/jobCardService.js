@@ -1491,9 +1491,9 @@ export async function getJobCardData(jobId) {
     // Determine Initial Request text (STRICT MODE):
     // - Must come ONLY from the job Description field (cleaned)
     // - Must NOT fall back to any notes/request fields
-    // - If there is no meaningful description (e.g. description is only the asset list), keep it blank
-    const descriptionCandidate = (descPrefix || (assets.length === 0 ? rawDescriptionText : '') || '').trim();
-    const initialRequest = descriptionCandidate || '';
+    // IMPORTANT: do NOT blank it just because it "looks like" an asset list.
+    // If the job description contains Asset Type lines, that's still the job description and should show.
+    const initialRequest = String(rawDescriptionText || '').trim();
     const workCarriedOut = parseWorkCarriedOutFromText(jobNotes);
     
     // Build job card data
