@@ -207,6 +207,163 @@ function buildPricingOutputs({ outDir, items }) {
   return model;
 }
 
+function normalizeDesc(s) {
+  return String(s || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseQtyFromDesc(desc) {
+  const d = String(desc || '');
+  const m = d.match(/\b(\d+)\s*x\b/i);
+  if (m) return Math.max(1, Number(m[1]) || 1);
+  return 1;
+}
+
+function classifyLine(desc) {
+  const d = String(desc || '').toLowerCase();
+  if (d.includes('lpr camera')) return { key: 'camera_lpr', label: 'LPR camera install line' };
+  if (d.includes('4-way') && d.includes('multi')) return { key: 'camera_multisensor', label: 'Multi-sensor (4-way) camera install line' };
+  if (d.includes('8mp') && d.includes('bullet')) return { key: 'camera_bullet', label: '8MP bullet camera install line' };
+  if (d.includes('8mp') && d.includes('dome')) return { key: 'camera_dome', label: '8MP dome camera install line' };
+  if (d.includes('12mp') && d.includes('dual')) return { key: 'camera_dual', label: '12MP dual camera install line' };
+  if (d.includes('monitor') && d.includes('decoder')) return { key: 'display_monitor_decoder', label: 'Monitor + decoder install line' };
+  if (d.includes('video decoder') || (d.includes('decoder') && d.includes('monitor') === false)) return { key: 'decoder_only', label: 'Decoder-to-existing-monitor install line' };
+  if (d.includes('nvr') || d.includes('server') || d.includes('vms')) return { key: 'recording_server', label: 'Recording server/NVR + VMS line' };
+  if (d.includes('video entry')) return { key: 'video_entry', label: 'Video entry unit line' };
+  return { key: 'other', label: 'Other line' };
+}
+
+const KIT_TEMPLATES = {
+  camera_lpr: [
+    'LPR camera (model TBC)',
+    'Mounting/ancillaries & fixings',
+    'Cat6/data cabling allowance + containment interfaces',
+    'VMS licence allocation (pro‑rata, if applicable)',
+    'Sundries (labels, glands, consumables)',
+    'Access equipment / PPE allowance',
+    'Installation + commissioning labour allowance'
+  ],
+  camera_multisensor: [
+    'Multi-sensor camera (4-way) (model TBC)',
+    'Mounting/ancillaries & fixings',
+    'Cat6/data cabling allowance + containment interfaces',
+    'VMS licence allocation (pro‑rata, if applicable)',
+    'Sundries (labels, glands, consumables)',
+    'Access equipment / PPE allowance',
+    'Installation + commissioning labour allowance'
+  ],
+  camera_bullet: [
+    '8MP bullet camera (model TBC)',
+    'Mounting/ancillaries & fixings',
+    'Cat6/data cabling allowance + containment interfaces',
+    'VMS licence allocation (pro‑rata, if applicable)',
+    'Sundries (labels, glands, consumables)',
+    'Access equipment / PPE allowance',
+    'Installation + commissioning labour allowance'
+  ],
+  camera_dome: [
+    '8MP dome camera (model TBC)',
+    'Mounting/ancillaries & fixings',
+    'Cat6/data cabling allowance + containment interfaces',
+    'VMS licence allocation (pro‑rata, if applicable)',
+    'Sundries (labels, glands, consumables)',
+    'Access equipment / PPE allowance',
+    'Installation + commissioning labour allowance'
+  ],
+  camera_dual: [
+    '12MP dual camera (model TBC)',
+    'Mounting/ancillaries & fixings',
+    'Cat6/data cabling allowance + containment interfaces',
+    'VMS licence allocation (pro‑rata, if applicable)',
+    'Sundries (labels, glands, consumables)',
+    'Access equipment / PPE allowance',
+    'Installation + commissioning labour allowance'
+  ],
+  display_monitor_decoder: [
+    'Video decoder (model TBC)',
+    'Monitor (size as specified)',
+    'Cat6/data cabling allowance + containment interfaces',
+    'Configuration + commissioning labour allowance'
+  ],
+  decoder_only: [
+    'Video decoder (model TBC)',
+    'Cat6/data cabling allowance + containment interfaces',
+    'Configuration + commissioning labour allowance'
+  ],
+  recording_server: [
+    'NVR / server hardware (model/spec TBC)',
+    'VMS licensing (as specified)',
+    'Monitor and/or workstation (if specified)',
+    'Network switch / PoE / cabinet allowances (if required by final design)',
+    'Configuration, commissioning, acceptance testing'
+  ],
+  video_entry: [
+    'Video entry unit (model TBC)',
+    'Integration notes (3rd party handset/interface may be required)',
+    'Cabling/containment allowance',
+    'Commissioning labour allowance'
+  ],
+  other: [
+    'Item(s) per final design/specification (TBC)',
+    'Cabling/containment allowance',
+    'Installation + commissioning allowance'
+  ]
+};
+
+function buildKitListOutputs({ outDir, items }) {
+  const rows = items.map((it) => ({
+    site: it.site,
+    description: normalizeDesc(it.description),
+    qty: parseQtyFromDesc(it.description)
+  }));
+
+  // Aggregate identical descriptions per site (so "there could be 2 of these" rolls up)
+  const byKey = new Map();
+  for (const r of rows) {
+    const k = `${r.site}||${r.description}`;
+    const cur = byKey.get(k) || { site: r.site, description: r.description, qty: 0 };
+    cur.qty += r.qty;
+    byKey.set(k, cur);
+  }
+  const agg = [...byKey.values()].sort((a, b) => (a.site + a.description).localeCompare(b.site + b.description));
+
+  const md = [];
+  md.push('# Kit List Summary (indicative)');
+  md.push('');
+  md.push('This section summarises the **typical parts** that make up each schedule line. It is intended as a practical “kit list” view for the proposal and will be finalised at measured survey / detailed design.');
+  md.push('');
+  md.push('## A) Summary by site (schedule lines aggregated)');
+  md.push('');
+  md.push('| Site | Qty | Line item (from schedule) |');
+  md.push('|---|---:|---|');
+  for (const r of agg) {
+    md.push(`| ${r.site} | ${r.qty} | ${r.description} |`);
+  }
+  md.push('');
+  md.push('## B) Typical parts breakdown by line type');
+  md.push('');
+
+  // Aggregate by site + classifier key so we can list templates once per type
+  const seen = new Set();
+  for (const r of agg) {
+    const cls = classifyLine(r.description);
+    const k = `${r.site}||${cls.key}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    md.push(`### ${r.site} — ${cls.label}`);
+    md.push('');
+    md.push('Typical parts:');
+    for (const p of (KIT_TEMPLATES[cls.key] || KIT_TEMPLATES.other)) {
+      md.push(`- ${p}`);
+    }
+    md.push('');
+  }
+
+  writeText(path.join(outDir, 'kit-list.md'), md.join('\n'));
+}
+
 function main() {
   const extractDir = path.join(__dirname, '../../tender-extract-weymouth-bridport');
   const outDir = path.join(__dirname, '../../tender-qna/weymouth-bridport');
@@ -240,6 +397,7 @@ function main() {
   const itemsUniq = uniq(items.map((x) => ({ k: key(x), x }))).map((o) => o.x);
 
   const pricingModel = buildPricingOutputs({ outDir, items: itemsUniq });
+  buildKitListOutputs({ outDir, items: itemsUniq });
 
   const pack = [];
   pack.push(`# Tender Submission Response Pack — ${info.tenderTitle}`);
@@ -339,6 +497,8 @@ function main() {
         pdfOut,
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'kit-list.md'),
         '--include',
         path.join(outDir, 'pricing-summary.md')
       ],
