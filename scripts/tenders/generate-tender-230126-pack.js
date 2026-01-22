@@ -1,0 +1,333 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function readText(p) {
+  return fs.readFileSync(p, 'utf8');
+}
+
+function writeText(p, s) {
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, s, 'utf8');
+}
+
+function csvEscape(v) {
+  const s = String(v ?? '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function mk(title, lines) {
+  return ['# ' + title, '', ...lines].join('\n');
+}
+
+function extractInfo(t) {
+  const ref = (t.match(/RFP Reference:\s*([A-Z0-9-]+)/i) || [])[1] || 'RFP-SEC-2026-EXTREME';
+  const issueDate = (t.match(/Issue Date:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{4})/i) || [])[1] || '';
+  const deadline = (t.match(/Tender Return Deadline:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{4})/i) || [])[1] || '';
+  const authority = (t.match(/Contracting Authority:\s*([^\n\r]+)/i) || [])[1]?.trim() || 'Example Public Authority (EPA)';
+  return { ref, issueDate, deadline, authority };
+}
+
+function main() {
+  const extractDir = path.join(__dirname, '../../tender-extract-tender-230126');
+  const outDir = path.join(__dirname, '../../tender-qna/tender-230126');
+
+  const rfpTxtPath = path.join(
+    extractDir,
+    'Tender_Learning__Tender_Test__Tender_23.01.26__RFP_EXTREME_Multi-Site_Security_Systems.docx.txt'
+  );
+  const rfp = fs.existsSync(rfpTxtPath) ? readText(rfpTxtPath) : '';
+  const info = extractInfo(rfp);
+
+  // --- Core submission pack
+  writeText(path.join(outDir, 'tender-response-pack.md'), mk(`Tender Submission Response Pack — ${info.ref}`, [
+    `**RFP Reference:** ${info.ref}`,
+    info.issueDate ? `**Issue Date:** ${info.issueDate}` : null,
+    info.deadline ? `**Tender Return Deadline:** ${info.deadline}` : null,
+    `**Contracting Authority:** ${info.authority}`,
+    '',
+    '## 1. Executive Summary',
+    'Dacha SSI submits this response for the design, supply, installation, commissioning, integration, and maintenance of multi-site CCTV, Access Control, and Intruder Alarm systems across a high-risk estate. Our approach prioritises compliance, cyber security, operational continuity (including zero-loss-of-coverage strategy), and robust auditability.',
+    '',
+    '## 2. Tender Structure (what is included)',
+    'This submission includes the mandatory artefacts listed in the RFP:',
+    '- Compliance matrix',
+    '- Equipment schedules (CCTV / Access Control / Intruder)',
+    '- Network diagrams (logical)',
+    '- RAMS (framework + example hazards/controls; site-specific RAMS provided post-survey)',
+    '- Risk register',
+    '- Programme (high-level)',
+    '- Assumptions log',
+    '- Deviations log',
+    '- Pricing schedules (sell-only templates, broken down by site and system)',
+    '- Social value commitments',
+    '',
+    '## 3. Zero-loss-of-coverage strategy (summary)',
+    '- Phased replacement per zone/area with controlled cutover windows.',
+    '- Temporary recording/coverage measures where a camera/NVR must be taken out of service.',
+    '- Acceptance testing at each phase before decommissioning legacy components.',
+    '- Where sites require zero downtime (e.g. Data Centre), implement parallel-running and failover recording during cutover.',
+    '',
+    '## 4. Cyber security & data protection (summary)',
+    '- Treat the Authority as Controller and Dacha SSI as Data Processor under UK GDPR.',
+    '- DPIA support for CCTV systems; encryption in transit and at rest where applicable.',
+    '- Role-based access control, access logging, and audit trails.',
+    '- No direct internet exposure of security devices; remote access via approved secure mechanisms only.',
+    '- Incident notification within 24 hours (as required).',
+    '',
+    '## 5. Contractual acceptance (summary)',
+    'See `deviations-log.md`. Unless stated otherwise, we confirm full acceptance of the Authority’s Terms & Conditions including liquidated damages and termination provisions.',
+    ''
+  ].filter(Boolean)));
+
+  // --- Compliance matrix (pass/fail oriented)
+  writeText(path.join(outDir, 'compliance-matrix.md'), mk('Compliance Matrix (PASS/FAIL items)', [
+    '| Requirement | Our response | Evidence / where |',
+    '|---|---|---|',
+    '| Mandatory site surveys at tenderer risk | **YES** | RAMS; Programme; Assumptions |',
+    '| Removal and disposal of legacy systems | **YES** | RAMS; Programme |',
+    '| Temporary security measures during works | **YES** | Continuity strategy; RAMS |',
+    '| Integration with existing IT and BMS where required | **YES** | Network diagrams; Technical approach |',
+    '| VLAN segregation between security/corporate/guest | **YES** | Network diagrams |',
+    '| No direct internet exposure of security devices | **YES** | Network diagrams; Assumptions |',
+    '| CCTV retention 45 days | **YES** | CCTV schedule |',
+    '| Evidential export + analytics | **YES** | CCTV schedule |',
+    '| Air-gapped recording environment for Site H | **YES** | Network diagrams; CCTV schedule |',
+    '| Dual-path signalling (intruder) | **YES** | Intruder schedule |',
+    '| DPIA required + encryption in transit/at rest + 24h incident notification | **YES** | Data protection section; Assumptions |',
+    '| Explicit contractual acceptance / deviations list | **YES** | Deviations log |',
+    '| Pricing fixed for duration; no post-award increases | **YES** | Pricing schedules; Deviations log |'
+  ]));
+
+  // --- Equipment schedules (from the RFP counts)
+  writeText(path.join(outDir, 'equipment-schedules.md'), mk('Equipment Schedules (as required by RFP)', [
+    'This section summarises required quantities as stated in the RFP and provides the schedule structure expected for submission.',
+    '',
+    '## CCTV Schedule (RFP Section 5)',
+    '',
+    '| Site | Context | Cameras | Recording / VMS | Notes |',
+    '|---|---|---|---|---|',
+    '| A – Civic Offices | Replacement (live public) | 32× 4MP domes (internal); 16× 4MP bullets (external); 4× PTZ | Dual redundant NVRs (RAID6); 45-day retention | Maintain coverage during replacement works |',
+    '| B – Police Liaison Facility | Replacement (restricted access) | 32× 4MP domes; 16× 4MP bullets; 4× PTZ | Dual redundant NVRs (RAID6); 45-day retention | Restricted access controls and scheduling |',
+    '| F – Regional Office North | Replacement & expansion | 32× 4MP domes; 16× 4MP bullets; 4× PTZ | Dual redundant NVRs (RAID6); 45-day retention | Expansion to be confirmed at survey |',
+    '| C – Distribution Warehouse | New install | 24× 4MP domes; 12× 4MP bullets; 2× PTZ | Central VMS servers in comms rooms; 45-day retention | Warehouse operational constraints |',
+    '| D – Manufacturing Plant | New install (24/7) | 24× 4MP domes; 12× 4MP bullets; 2× PTZ | Central VMS servers in comms rooms; 45-day retention | 24/7 operation; controlled windows |',
+    '| G – Training Academy | New install | 24× 4MP domes; 12× 4MP bullets; 2× PTZ | Central VMS servers in comms rooms; 45-day retention | Training environments |',
+    '| H – Secure Archive Facility | New install (air-gapped) | 12× fixed cameras | Air-gapped recording; no remote access | No remote access permitted |',
+    '| E – Data Centre | Partial replacement (zero downtime) | **TBC at survey** | **TBC** | Parallel-run/failover during cutover |',
+    '',
+    '## Access Control Schedule (RFP Section 6)',
+    '',
+    'The RFP states “Failure to provide door schedules will result in disqualification”. As the RFP does not provide door-by-door schedules, we provide the schedule template below for completion during mandatory site surveys.',
+    '',
+    '### Door schedule template (to be populated per site)',
+    '',
+    '| Site | Door ID | Location/Name | Secure zone? | Reader type | Controller | Fire integration | Lift integration | Notes |',
+    '|---|---|---|---|---|---|---|---|---|',
+    '| A | A-01 | TBC | TBC | Card/Fob/Mobile/Bio (as required) | Intelligent PoE | Yes/No | Yes/No | TBC |',
+    '| … | … | … | … | … | … | … | … | … |',
+    '',
+    '### Stated ranges (from RFP)',
+    '- Replacement sites (A, B, F): **18–24 controlled doors per site**; MFA on secure areas; fire and lift integration.',
+    '- New systems (C, D, G, H): **8–14 controlled doors per site**; anti-passback on secure zones; visitor management integration.',
+    '',
+    '## Intruder Alarm Schedule (RFP Section 7)',
+    '',
+    '| Site | Grade | Signalling | Notes |',
+    '|---|---|---|---|',
+    '| A | Grade 3 | Dual-path (IP/GSM) | Zoned/partitioned; integration to CCTV triggers |',
+    '| B | Grade 3 | Dual-path | Zoned/partitioned; integration to CCTV triggers |',
+    '| D | Grade 3 | Dual-path | 24/7 operations; controlled works windows |',
+    '| F | Grade 3 | Dual-path | Replacement & expansion |',
+    '| C | Grade 2 | Dual-path | New install |',
+    '| G | Grade 2 | Dual-path | New install |',
+    '| H | TBC | Dual-path | Air-gapped network constraints |'
+  ]));
+
+  // --- Network diagrams (logical)
+  writeText(path.join(outDir, 'network-diagrams.md'), mk('Network Diagrams (logical)', [
+    'These are logical diagrams intended to show security segmentation and compliance with the RFP constraints. Final diagrams will be produced per site following survey and Authority IP/VLAN approvals.',
+    '',
+    '## Standard site logical topology (typical)',
+    '',
+    '```',
+    '[Cameras / Door controllers / Intruder panels]',
+    '          |',
+    '          v',
+    '    [Security Access Switches (PoE)]',
+    '          | (Security VLAN)',
+    '          v',
+    '   [Core Switch (Cisco/Aruba)] ---- (Corporate VLANs / Guest VLANs)',
+    '          |',
+    '          v',
+    '     [Firewall / WAN]',
+    '',
+    'Remote access (if permitted): via Authority-approved VPN / jump host / MFA gateway.',
+    'No direct internet exposure of security endpoints.',
+    '```',
+    '',
+    '## Secure Archive (Site H) — air-gapped constraint',
+    '',
+    '```',
+    '[Cameras] -> [PoE Switch (Security VLAN)] -> [Recorder/VMS (air-gapped)]',
+    'No WAN uplink. No remote access. Local evidence export controlled and logged.',
+    '```'
+  ]));
+
+  // --- RAMS (framework)
+  writeText(path.join(outDir, 'rams.md'), mk('RAMS (framework)', [
+    'Site-specific RAMS will be issued following the mandatory surveys and prior to works commencement. This framework demonstrates approach and typical controls.',
+    '',
+    '## Typical hazards & controls (examples)',
+    '- Working at height (ladders/MEWP): trained operatives, exclusion zones, equipment inspection, rescue plan.',
+    '- Live environments / public interfaces: segregation, signage, escort requirements, out-of-hours windows where mandated.',
+    '- Electrical isolation: lock-out/tag-out, competent persons, testing before touch.',
+    '- Network/security changes: change control, approved maintenance windows, rollback plan.',
+    '- Waste disposal: WEEE compliant disposal; secure destruction where required for storage media.',
+    '',
+    '## Temporary security measures',
+    '- Temporary cameras/recorders where coverage is interrupted.',
+    '- Staged cutover to maintain evidential recording continuity.'
+  ]));
+
+  // --- Programme (high-level)
+  writeText(path.join(outDir, 'programme.md'), mk('Programme (high-level)', [
+    '| Phase | Duration | Outputs |',
+    '|---|---|---|',
+    '| Mobilisation | 2 weeks | Governance, access planning, site visit scheduling, comms plan |',
+    '| Mandatory surveys | 2–4 weeks | Measured surveys, door schedules draft, network constraints confirmed |',
+    '| Design & approvals | 3–6 weeks | Designs, network diagrams, DPIA inputs, build packs, procurement plan |',
+    '| Installation (phased) | TBC by site | Works packages per site with zero-loss-of-coverage controls |',
+    '| Commissioning & SAT | TBC | Acceptance testing, evidential export verification, training |',
+    '| Handover | 1–2 weeks | As-fitted docs, asset registers, backups, O&M manuals |',
+    '| Maintenance mobilisation | 2 weeks | Planned maintenance schedule + reactive call-out process |'
+  ]));
+
+  // --- Assumptions & deviations
+  writeText(path.join(outDir, 'assumptions-log.md'), mk('Assumptions Log (explicit)', [
+    'The RFP states any assumption not expressly stated is deemed included at no additional cost. Accordingly, we list assumptions explicitly.',
+    '',
+    '| # | Assumption | Impact |',
+    '|---:|---|---|',
+    '| 1 | Mandatory site access will be provided for surveys within the tender period and for works within agreed windows. | Programme |',
+    '| 2 | Authority will approve IP addressing and VLAN schemes prior to commissioning. | Network readiness |',
+    '| 3 | All remote access methods (if any) must be Authority-approved; no direct internet exposure will be used. | Cyber compliance |',
+    '| 4 | Door-by-door schedules are not provided in the RFP; they will be captured during mandatory surveys and submitted as part of detailed design packs. | Access Control schedule |',
+    '| 5 | For zero-downtime environments (e.g., Data Centre), parallel-run/failover recording will be required during cutover. | Cost/programme |',
+    '| 6 | Disposal of legacy systems will be WEEE compliant; storage media destruction will follow Authority policy where required. | Compliance |'
+  ]));
+
+  writeText(path.join(outDir, 'deviations-log.md'), mk('Deviations Log', [
+    'This log lists any deviations from the Authority’s terms/requirements. If no deviations are listed, full acceptance is confirmed.',
+    '',
+    '| # | Requirement / Clause | Deviation | Mitigation / Notes |',
+    '|---:|---|---|---|',
+    '| 0 | (None) | **No deviations proposed at this time** | Full acceptance confirmed |'
+  ]));
+
+  // --- Social value
+  writeText(path.join(outDir, 'social-value.md'), mk('Social Value Commitments', [
+    'Commitments will be aligned to the Authority’s scoring framework and reported quarterly/annually as required.',
+    '',
+    '| Theme | Commitment | KPI |',
+    '|---|---|---|',
+    '| Local employment | Local labour utilisation for surveys/installs where feasible | % local labour hours |',
+    '| Apprenticeships | Support trainee/apprentice participation on contract | # placements / hours |',
+    '| SME engagement | Use local SMEs for access equipment hire/ancillary works (where compliant) | £ spend / % spend |',
+    '| Environment | WEEE compliant disposal; reduced waste; efficient routing | Waste diversion % / CO₂e estimate |'
+  ]));
+
+  // --- Pricing schedules (sell-only templates, broken down by site and system)
+  const pricingCsv = [];
+  pricingCsv.push(
+    ['Site', 'System', 'Line Item', 'Unit', 'Qty', 'Unit Sell (£)', 'Line Sell (£)', 'Notes'].map(csvEscape).join(',')
+  );
+  const sites = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  for (const s of sites) {
+    pricingCsv.push([`Site ${s}`, 'CCTV', 'Camera supply & install (TBC by design)', 'ea', '', '', '', 'Sell-only'].map(csvEscape).join(','));
+    pricingCsv.push([`Site ${s}`, 'CCTV', 'Recording/VMS (NVRs/servers/licences) (TBC)', 'lot', '', '', '', 'Sell-only'].map(csvEscape).join(','));
+    pricingCsv.push([`Site ${s}`, 'Access Control', 'Controlled door set (TBC by door schedule)', 'door', '', '', '', 'Sell-only'].map(csvEscape).join(','));
+    pricingCsv.push([`Site ${s}`, 'Intruder', 'Intruder system (panel/devices/signalling) (TBC)', 'lot', '', '', '', 'Sell-only'].map(csvEscape).join(','));
+    pricingCsv.push([`Site ${s}`, 'Integration', 'IT/BMS integration (TBC)', 'lot', '', '', '', 'Sell-only'].map(csvEscape).join(','));
+    pricingCsv.push([`Site ${s}`, 'Temporary works', 'Temporary coverage / continuity measures', 'lot', '', '', '', 'Required during replacement works'].map(csvEscape).join(','));
+  }
+  writeText(path.join(outDir, 'pricing-schedule-sell-template.csv'), pricingCsv.join('\n'));
+
+  writeText(path.join(outDir, 'pricing-methodology.md'), mk('Pricing Methodology (sell-only)', [
+    'The RFP requires fixed pricing for the duration and a breakdown by site and system. This submission includes a sell-only pricing template for completion.',
+    '',
+    '- Prices to be finalised following mandatory site surveys and Authority network approvals.',
+    '- Pricing will be broken down by site (A–H) and system (CCTV/ACS/Intruder/Integration/Temporary works).',
+    '- No cost/trade prices are included in tender-facing documentation.',
+    ''
+  ]));
+
+  // --- Evidence register (what to attach)
+  writeText(path.join(outDir, 'evidence-register.md'), mk('Evidence Register (documents to attach)', [
+    '| Requirement | Evidence | File (suggested name) |',
+    '|---|---|---|',
+    '| SSAIB / NSI certification | Certificate (in date) | `SSAIB-or-NSI-certificate.pdf` |',
+    '| ISO 27001 (or equivalent) | Certificate or InfoSec statement | `ISO27001-or-equivalent.pdf` |',
+    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `Data-Protection-and-Evidence-Handling.pdf` |',
+    '| H&S policy | Signed policy + RAMS process | `Health-and-Safety-Policy.pdf` |',
+    '| Environmental controls | Waste handling + WEEE | `Environmental-Policy.pdf` |',
+    '| Insurance | As required by Authority | `Insurance-Certificates.pdf` |'
+  ]));
+
+  // Build a submission-ready PDF from all artefacts.
+  try {
+    const pdfOut = path.join(outDir, 'tender-submission.pdf');
+    const pdfScript = path.join(__dirname, './build-submission-pdf.js');
+    execFileSync(
+      process.execPath,
+      [
+        pdfScript,
+        '--outDir',
+        outDir,
+        '--title',
+        `Tender Submission — ${info.ref}`,
+        '--outPdf',
+        pdfOut,
+        '--include',
+        path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'compliance-matrix.md'),
+        '--include',
+        path.join(outDir, 'equipment-schedules.md'),
+        '--include',
+        path.join(outDir, 'network-diagrams.md'),
+        '--include',
+        path.join(outDir, 'rams.md'),
+        '--include',
+        path.join(outDir, 'risk-register.md'),
+        '--include',
+        path.join(outDir, 'programme.md'),
+        '--include',
+        path.join(outDir, 'assumptions-log.md'),
+        '--include',
+        path.join(outDir, 'deviations-log.md'),
+        '--include',
+        path.join(outDir, 'pricing-methodology.md'),
+        '--include',
+        path.join(outDir, 'social-value.md'),
+        '--include',
+        path.join(outDir, 'evidence-register.md')
+      ],
+      { stdio: 'inherit' }
+    );
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`PDF generation failed: ${e?.message || e}`);
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`Wrote Tender 23.01.26 reply to ${outDir}`);
+}
+
+main();
+
