@@ -21,6 +21,19 @@ function csvEscape(v) {
   return s;
 }
 
+function readOverrides(p) {
+  if (!p) return {};
+  const fp = String(p).trim();
+  if (!fp) return {};
+  if (!fs.existsSync(fp)) return {};
+  try {
+    const j = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    return (j && typeof j === 'object') ? j : {};
+  } catch {
+    return {};
+  }
+}
+
 function main() {
   const bomJsonPath = process.argv[2] || path.join(__dirname, '../../tender-qna/bridport-hospital/bom.json');
   const outDir = process.argv[3] || path.join(__dirname, '../../tender-qna/bridport-hospital');
@@ -28,6 +41,8 @@ function main() {
     process.argv[4]
       ? toNum(process.argv[4])
       : (process.env.TENDER_DEFAULT_MARKUP_PCT ? toNum(process.env.TENDER_DEFAULT_MARKUP_PCT) : 40); // default: 40%
+  const overridesPath = process.env.TENDER_PRICE_OVERRIDES_PATH || '';
+  const overrides = readOverrides(overridesPath);
 
   if (!fs.existsSync(bomJsonPath)) throw new Error(`Missing BOM json: ${bomJsonPath}`);
   fs.mkdirSync(outDir, { recursive: true });
@@ -43,7 +58,13 @@ function main() {
     const unitTrade = toNum(m.tradePrice);
     const appliedMarkup = markupPct !== null ? markupPct : null;
     const sellBasis = unitCost ?? unitTrade ?? null; // prefer cost if present, else trade
-    const unitSell = (sellBasis !== null && appliedMarkup !== null) ? sellBasis * (1 + appliedMarkup / 100) : null;
+    const computedUnitSell = (sellBasis !== null && appliedMarkup !== null) ? sellBasis * (1 + appliedMarkup / 100) : null;
+
+    const modelKey = String(r.model || '').trim();
+    const override = overrides[modelKey] || null;
+    const overrideUnitSell = override ? toNum(override.unitSell ?? override.UnitSell ?? override.sell ?? override.Sell) : null;
+
+    const unitSell = (overrideUnitSell !== null) ? overrideUnitSell : computedUnitSell;
     const lineSell = (unitSell !== null) ? unitSell * qty : null;
     return {
       category: 'Hardware',
@@ -58,7 +79,7 @@ function main() {
       markupPct: appliedMarkup,
       unitSell: unitSell,
       lineSell: lineSell,
-      notes: r.matchType || '',
+      notes: (overrideUnitSell !== null) ? 'override_sell' : (r.matchType || ''),
       sources: Array.isArray(r.sources) ? r.sources.join('+') : ''
     };
   });
@@ -149,6 +170,7 @@ function main() {
   md.push('- Hardware lines were mapped from the BOM to Simpro catalogue items where possible.');
   md.push('- Labour/other lines are placeholders for now.');
   md.push(`- Sell pricing uses markup %: ${markupPct === null ? 'TBC (set TENDER_DEFAULT_MARKUP_PCT or pass as 3rd arg)' : `${markupPct}%`}.`);
+  if (overridesPath) md.push(`- Sell overrides loaded from: \`${overridesPath}\``);
   md.push('');
   md.push(`Generated files: \`pricing-matrix-sell.csv\` (customer-facing) and \`pricing-matrix-internal.csv\` (internal).`);
   fs.writeFileSync(path.join(outDir, 'pricing-matrix.md'), md.join('\n'), 'utf8');
