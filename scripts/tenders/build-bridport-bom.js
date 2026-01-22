@@ -133,6 +133,52 @@ function parseAssetRegister(assetText) {
   };
 }
 
+function parsePatchSchedule(patchText) {
+  // Extract device models from the patch schedule (cameras + decoders + intercom handset, etc.)
+  // Extract examples (from text):
+  // - "Driveway ANPR XNO-6123R 192.168.1.101"
+  // - "Reception Decoder SPD-152 192.168.1.201"
+  // - "Intercom Handset GSC3570 192.168.1.60"
+  const t = String(patchText || '').replace(/\s+/g, ' ').trim();
+  if (!t) return { items: [], counts: [] };
+
+  // Model tokens: "ABC-123", "ABCD-1234X", etc, and "GSC3570".
+  // Intentionally ignores IPs and ports.
+  const re = /\b([A-Z]{2,4}-\d{2,6}[A-Z0-9-]*)\b|\b(GSC\d{3,6})\b/gi;
+  const items = [];
+  let m;
+  while ((m = re.exec(t))) {
+    const model = normModel(m[1] || m[2] || '');
+    if (!model) continue;
+    items.push({ model });
+  }
+
+  const byModel = new Map();
+  for (const it of items) byModel.set(it.model, (byModel.get(it.model) || 0) + 1);
+  return {
+    items,
+    counts: [...byModel.entries()].sort((a, b) => b[1] - a[1]).map(([model, qty]) => ({ model, qty }))
+  };
+}
+
+function mergeCounts(assetCounts, patchCounts) {
+  // Merge by taking the maximum quantity for each model and recording sources.
+  const map = new Map();
+  for (const x of assetCounts || []) {
+    map.set(x.model, { model: x.model, qty: x.qty, sources: ['asset_register'] });
+  }
+  for (const x of patchCounts || []) {
+    const cur = map.get(x.model);
+    if (!cur) {
+      map.set(x.model, { model: x.model, qty: x.qty, sources: ['patch_schedule'] });
+      continue;
+    }
+    cur.qty = Math.max(cur.qty, x.qty);
+    if (!cur.sources.includes('patch_schedule')) cur.sources.push('patch_schedule');
+  }
+  return [...map.values()].sort((a, b) => b.qty - a.qty || a.model.localeCompare(b.model));
+}
+
 function buildCatalogIndex(catalogCsvPath) {
   const raw = fs.readFileSync(catalogCsvPath, 'utf8');
   const rows = parseCsv(raw);
@@ -194,17 +240,21 @@ function main() {
 
   const camDesignPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__NHS_Dorset_-_Bridport_-_Camera_designs.pdf.txt');
   const assetPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Asset_Register_270325.pdf.txt');
+  const patchPath = path.join(extractDir, 'Tender_Learning__Bridport_Hospital__Bridport_Patch_Schedule_Updated_270325.pdf.txt');
 
   const camDesignText = fs.existsSync(camDesignPath) ? readText(camDesignPath) : '';
   const assetText = fs.existsSync(assetPath) ? readText(assetPath) : '';
+  const patchText = fs.existsSync(patchPath) ? readText(patchPath) : '';
 
   const design = parseCameraDesignModels(camDesignText);
   const assets = parseAssetRegister(assetText);
+  const patch = parsePatchSchedule(patchText);
+  const mergedCounts = mergeCounts(assets.counts, patch.counts);
 
   const catalogIndex = buildCatalogIndex(catalogCsv);
   const idxByPart = catalogIndex.idxByPart;
   const catalogRows = catalogIndex.rows;
-  const bom = assets.counts.map((x) => {
+  const bom = mergedCounts.map((x) => {
     const exact = pickCatalogMatch(x.model, idxByPart);
     const looseRaw = exact ? null : pickCatalogMatchLoose(x.model, catalogRows);
     const loose = looseRaw
@@ -222,7 +272,8 @@ function main() {
       model: x.model,
       qty: x.qty,
       catalogMatch: exact || loose,
-      matchType: exact ? 'exact_part_number' : (loose ? 'loose_contains' : 'none')
+      matchType: exact ? 'exact_part_number' : (loose ? 'loose_contains' : 'none'),
+      sources: x.sources || []
     };
   });
 
@@ -231,9 +282,11 @@ function main() {
     inputs: {
       cameraDesignExtract: path.basename(camDesignPath),
       assetRegisterExtract: path.basename(assetPath),
+      patchScheduleExtract: path.basename(patchPath),
       catalogCsv: path.basename(catalogCsv)
     },
     designCandidateModels: design.candidateModels,
+    patchScheduleModels: patch.counts,
     bom
   };
 
