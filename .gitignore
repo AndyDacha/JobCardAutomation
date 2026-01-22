@@ -24,5 +24,9 @@ Job Cards/
 !Dacha Logo/**/*.webp
 *.sh
 scripts/
+!scripts/
+!scripts/tenders/
+!scripts/tenders/**
+tender-extract/
 !README.md
 templates/
