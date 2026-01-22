@@ -386,6 +386,8 @@ function main() {
         outDir,
         '--title',
         `Tender Submission — Project ${info.projectNo}`,
+        '--projectNo',
+        String(info.projectNo),
         '--outPdf',
         pdfOut,
         '--include',

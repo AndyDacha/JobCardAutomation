@@ -6,6 +6,17 @@ function readText(p) {
   return fs.readFileSync(p, 'utf8');
 }
 
+function readImageBase64Maybe(p) {
+  try {
+    if (!p) return null;
+    if (!fs.existsSync(p)) return null;
+    const buf = fs.readFileSync(p);
+    return buf.toString('base64');
+  } catch {
+    return null;
+  }
+}
+
 function escapeHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -181,9 +192,16 @@ async function main() {
   const title = (args.title && args.title[0]) || args._[1] || 'Tender Submission';
   const outPdf = (args.outPdf && args.outPdf[0]) || path.join(outDir || '.', 'tender-submission.pdf');
   const include = (args.include || []).map((p) => (path.isAbsolute(p) ? p : path.join(process.cwd(), p)));
+  const projectNo = (args.projectNo && args.projectNo[0]) ? String(args.projectNo[0]) : '';
 
   if (!outDir) throw new Error('Missing --outDir');
   if (include.length === 0) throw new Error('Missing at least one --include <path-to-md>');
+
+  const logoPath =
+    (args.logo && args.logo[0])
+      ? (path.isAbsolute(args.logo[0]) ? args.logo[0] : path.join(process.cwd(), args.logo[0]))
+      : path.join(process.cwd(), 'Dacha Logo/Dacha Orange Logo.png');
+  const logoBase64 = readImageBase64Maybe(logoPath);
 
   const sections = include.map((p) => ({
     path: p,
@@ -199,7 +217,7 @@ async function main() {
     .join('\n');
 
   const css = `
-    @page { margin: 22mm 16mm; }
+    @page { margin: 26mm 16mm 18mm 16mm; } /* extra top space for branded header */
     body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11pt; line-height: 1.35; }
     h1 { font-size: 18pt; margin: 0 0 10px 0; }
     h2 { font-size: 14pt; margin: 14px 0 8px 0; }
@@ -207,7 +225,8 @@ async function main() {
     p { margin: 0 0 6px 0; }
     ul { margin: 0 0 8px 18px; padding: 0; }
     li { margin: 0 0 4px 0; }
-    .cover { border-bottom: 2px solid #f47b20; padding-bottom: 10px; margin-bottom: 14px; }
+    .cover { border: 1px solid #e6e6e6; border-left: 4px solid #f47b20; padding: 14px; margin-bottom: 14px; }
+    .cover h1 { margin: 0 0 6px 0; }
     .muted { color: #555; font-size: 10pt; }
     .sp { height: 8px; }
     .tbl { width: 100%; border-collapse: collapse; margin: 8px 0 10px 0; }
@@ -216,19 +235,15 @@ async function main() {
     .code { background: #f7f7f7; padding: 10px; border: 1px solid #e3e3e3; overflow: auto; }
     .page-break { page-break-before: always; }
     .doc-section { font-size: 13pt; color: #333; margin-top: 0; }
-    header { position: fixed; top: -14mm; left: 0; right: 0; height: 12mm; font-size: 9pt; color: #666; }
-    footer { position: fixed; bottom: -14mm; left: 0; right: 0; height: 12mm; font-size: 9pt; color: #666; }
   `;
 
   const html = `
     <html>
       <head><meta charset="utf-8"/><style>${css}</style></head>
       <body>
-        <header>${escapeHtml(title)}</header>
-        <footer><span class="muted">Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</span></footer>
         <div class="cover">
           <h1>${escapeHtml(title)}</h1>
-          <div class="muted">Prepared by Dacha SSI Ltd</div>
+          <div class="muted">Prepared by Dacha SSI Ltd · Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
         </div>
         ${bodyHtml}
       </body>
@@ -242,7 +257,25 @@ async function main() {
     await page.pdf({
       path: outPdf,
       format: 'A4',
-      printBackground: true
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: `
+        <div style="width:100%; font-family: Arial, Helvetica, sans-serif; font-size:9px; color:#444; padding:0 16mm; box-sizing:border-box;">
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e6e6e6; padding-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              ${logoBase64 ? `<img src="data:image/png;base64,${logoBase64}" style="height:18px;"/>` : `<div style="font-weight:700; color:#f47b20;">Dacha SSI</div>`}
+              <div style="font-weight:600; color:#111;">${escapeHtml(title)}</div>
+            </div>
+            ${projectNo ? `<div style="color:#666;">Project: ${escapeHtml(projectNo)}</div>` : `<div></div>`}
+          </div>
+        </div>`,
+      footerTemplate: `
+        <div style="width:100%; font-family: Arial, Helvetica, sans-serif; font-size:9px; color:#666; padding:0 16mm; box-sizing:border-box;">
+          <div style="display:flex; align-items:center; justify-content:space-between; border-top:1px solid #e6e6e6; padding-top:6px;">
+            <div>Confidential · For tender submission purposes</div>
+            <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+          </div>
+        </div>`
     });
   } finally {
     await browser.close();
