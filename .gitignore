@@ -28,5 +28,7 @@ scripts/
 !scripts/tenders/
 !scripts/tenders/**
 tender-extract/
+tender-extract-*/
+tender-qna/
 !README.md
 templates/
