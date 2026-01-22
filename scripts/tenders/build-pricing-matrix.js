@@ -169,7 +169,8 @@ function main() {
   md.push('');
   md.push('- Hardware lines were mapped from the BOM to Simpro catalogue items where possible.');
   md.push('- Labour/other lines are placeholders for now.');
-  md.push(`- Sell pricing uses markup %: ${markupPct === null ? 'TBC (set TENDER_DEFAULT_MARKUP_PCT or pass as 3rd arg)' : `${markupPct}%`}.`);
+  // Do not mention markup % in any customer-facing tender pack unless the ITT explicitly requests it.
+  md.push('- Sell pricing is provided on a sell-only basis (no cost/trade shown).');
   if (overridesPath) md.push(`- Sell overrides loaded from: \`${overridesPath}\``);
   md.push('');
   md.push(`Generated files: \`pricing-matrix-sell.csv\` (customer-facing) and \`pricing-matrix-internal.csv\` (internal).`);

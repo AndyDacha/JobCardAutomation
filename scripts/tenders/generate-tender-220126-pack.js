@@ -54,7 +54,6 @@ function main() {
   const info = extractInfo(itt);
 
   // --- Pricing templates (sell-only). We don't have a BoM/schedule in this tender doc.
-  const markupPct = 40;
   const pricingCsv = [];
   pricingCsv.push(['Category', 'Item', 'Unit', 'Qty', 'Unit Sell (£)', 'Line Sell (£)', 'Notes'].map(csvEscape).join(','));
   pricingCsv.push(['Installation', 'CCTV camera (fixed/dome/PTZ) (TBC)', 'ea', '', '', '', 'Sell-only. Populate from design/survey.'].map(csvEscape).join(','));
@@ -71,7 +70,6 @@ function main() {
     'This tender pack does not include a detailed bill of materials or schedule-of-rates dataset.',
     'Accordingly, pricing is provided as a **sell-only template** for completion following survey/design and the Authority’s required submission format.',
     '',
-    `- **Default markup (for modelling only): ${markupPct}%**`,
     '- Sell price only (no cost/trade shown).',
     '- All rates must include commissioning, documentation, and handover requirements where applicable.',
     ''
