@@ -221,6 +221,62 @@ function main() {
 
   const mk = (title, bodyLines) => ['# ' + title, '', ...bodyLines].join('\n');
 
+  // --- Add "quick win" sections called out in review: local/social value, named personnel, mobilisation, risk ---
+  writeText(path.join(outDir, 'key-personnel.md'), mk('Key Personnel (subject to award)', [
+    'The following named roles will be confirmed at award and introduced at the mobilisation meeting. CV summaries can be provided on request.',
+    '',
+    '| Role | Named person | Responsibilities |',
+    '|---|---|---|',
+    '| Contract Manager (Key Person) | **TBC** | Single point of contact; governance; escalations; KPI oversight; quarterly reporting. |',
+    '| Scheduling & Appointments Coordinator | **TBC** | Programme planning; 10‑day notifications; appointment audit trail; Service Manager comms. |',
+    '| Lead Engineer (CCTV) | **TBC** | Technical lead; inspection standards; QA; toolbox talks; mentoring. |',
+    '| Incident Response Lead | **TBC** | Evidence downloads; chain of custody; incident pack compliance; training for users. |',
+    '| Monitoring Partner (if subcontracted) | **TBC (NSI Gold / BS EN 50518 compliant)** | 24/7 monitoring; audio challenge; weekly reporting; escalation to police/keyholders. |',
+    '',
+    'Escalation contact details (phone/email) will be issued on award as part of the contract contact sheet.'
+  ]));
+
+  writeText(path.join(outDir, 'social-value-and-locality.md'), mk('Local Coverage & Social Value', [
+    'We recognise that public sector evaluation considers local resilience and social value alongside technical compliance.',
+    '',
+    '### Local coverage (to be confirmed at mobilisation)',
+    '- We will provide a local engineer rota for East Riding of Yorkshire sites to support Response Code A attendance and minimise travel time.',
+    '- We will align planned inspections with school holiday windows and local site constraints to reduce disruption.',
+    '',
+    '### Social value commitments (examples – to be aligned to ERYC scoring model)',
+    '- **Apprenticeships / training**: commit to supporting apprentice or trainee development (CCTV/ELV discipline) during the contract term.',
+    '- **Local supply chain**: where appropriate, use local sub‑contractors for access equipment hire and ancillary works (subject to compliance and council approvals).',
+    '- **Waste & sustainability**: compliant WEEE handling, reduced site waste, and efficient routing to reduce carbon.',
+    '- **Community benefit**: support local employment opportunities where feasible and provide clear reporting on commitments.',
+    '',
+    'We will agree measurable social value KPIs at mobilisation so they can be tracked alongside contract KPIs.'
+  ]));
+
+  writeText(path.join(outDir, 'mobilisation-plan-90-days.md'), mk('Mobilisation Plan (first 90 days)', [
+    'This plan is designed to ensure a controlled transition, accurate asset baseline, and immediate readiness for reactive and incident response.',
+    '',
+    '| Timeframe | Activities | Outputs |',
+    '|---|---|---|',
+    '| Days 0–14 | Contract kickoff; confirm contacts; agree comms/escalation; confirm appointment process; confirm DBS list; confirm monitoring arrangement and changeover (if required). | Mobilisation meeting minutes; contact sheet; confirmed rota for Response Code A; monitoring plan. |',
+    '| Days 15–30 | Import/verify existing drawings, log books, and asset register data; build first inspection programme; set up reporting templates; confirm self‑audit plan. | Draft programme of visits; reporting templates; document control approach. |',
+    '| Days 31–60 | Commence initial inspection & testing visits; verify as‑installed information; identify non‑compliances; start contract asset register creation. | Inspection reports; discrepancy list; quotations for non‑compliances (if instructed); asset register v0. |',
+    '| Days 61–90 | Continue initial visits; stabilise reactive process; run first KPI checkpoint; confirm monitoring weekly report cadence; agree improvements. | Asset register v1; first quarterly-style performance snapshot; agreed improvement actions. |',
+    '',
+    'This plan is refined after award once property schedules, anniversary dates, and existing information are issued.'
+  ]));
+
+  writeText(path.join(outDir, 'risk-register.md'), mk('Risk Register (summary)', [
+    '| Risk | Impact | Mitigation |',
+    '|---|---|---|',
+    '| Incomplete/incorrect legacy drawings or log books | Delays to asset register accuracy and programmed visits | Early data validation; discrepancies logged; update drawings/log books via Objective Six when instructed. |',
+    '| Legacy manufacturer access credentials / unsupported platforms | Delays to repairs/servicing; higher reactive cost | Maintain OEM access methods; specialist subcontract support where required; evidence “most cost effective” options for repairs. |',
+    '| Access constraints at occupied sites / schools | Missed appointments; KPI risk | Strict appointment system; schedule school sites in holidays; confirm access and RAMS in advance. |',
+    '| Response Code A capacity during peaks | KPI failure; low service damages | On‑call rota; escalation tree; local engineer coverage; parts/spares readiness for common faults. |',
+    '| GDPR / evidence handling non‑compliance | Reputational/legal risk | Chain of custody, audit trail, minimisation; training; secure handling aligned to tender’s incident pack requirements. |',
+    '| Monitoring changeover risk | Service interruption | Planned changeover; parallel running where possible; ERYC IT coordination; pre‑go‑live testing and sign‑off. |',
+    '| Working at height / access equipment availability | Safety risk; delays | Forward plan MEWP needs; approved suppliers; trained operatives; site RAMS and permit systems. |'
+  ]));
+
   writeText(path.join(outDir, 'quality-q1-resources.md'), mk('Q1 – Resources', [
     'We will resource the contract with a dedicated Contract Manager (single point of contact), a planned maintenance scheduling coordinator, and a multi-skilled engineering team capable of CCTV inspections, minor repairs, configuration, and evidence handling.',
     '',
@@ -334,6 +390,14 @@ function main() {
         pdfOut,
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'key-personnel.md'),
+        '--include',
+        path.join(outDir, 'social-value-and-locality.md'),
+        '--include',
+        path.join(outDir, 'mobilisation-plan-90-days.md'),
+        '--include',
+        path.join(outDir, 'risk-register.md'),
         '--include',
         path.join(outDir, 'quality-q1-resources.md'),
         '--include',
