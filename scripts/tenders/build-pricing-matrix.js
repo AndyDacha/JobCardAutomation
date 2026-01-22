@@ -27,7 +27,7 @@ function main() {
   const markupPct =
     process.argv[4]
       ? toNum(process.argv[4])
-      : (process.env.TENDER_DEFAULT_MARKUP_PCT ? toNum(process.env.TENDER_DEFAULT_MARKUP_PCT) : null); // optional default markup
+      : (process.env.TENDER_DEFAULT_MARKUP_PCT ? toNum(process.env.TENDER_DEFAULT_MARKUP_PCT) : 40); // default: 40%
 
   if (!fs.existsSync(bomJsonPath)) throw new Error(`Missing BOM json: ${bomJsonPath}`);
   fs.mkdirSync(outDir, { recursive: true });
