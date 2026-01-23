@@ -2,7 +2,7 @@ import express from 'express';
 import logger from '../../utils/logger.js';
 import { getQuoteForAutomation, quoteMatchesTrigger, createReviewTaskForQuote, probeTaskEndpoints, probeTaskCreate, getJobLinkInfo } from '../../services/simpro/quoteService.js';
 import { findJobTagByName, listJobTags, probeTagEndpoints, debugFetchProjectTags, probeJobTagAttach, attachProjectTagToJob, probeJobPatchForTags, ensureJobHasTag } from '../../services/simpro/tagService.js';
-import { ensureCompletionDayTask, addMonthsUtc, parseDateOnly, toDateOnlyString } from '../../services/simpro/renewalService.js';
+import { ensureCompletionDayTask, ensureMaintenanceConversionTask, addMonthsUtc, parseDateOnly, toDateOnlyString } from '../../services/simpro/renewalService.js';
 import { createJobNoteOnce } from '../../services/simpro/jobNoteService.js';
 
 const router = express.Router();
@@ -296,6 +296,24 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
 
     // Audit note on conversion/tagging
     if (!result.alreadyPresent) {
+      // Create a job-associated task for the assignee to review maintenance details (conversion-time).
+      try {
+        const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
+        const siteName = link?.raw?.Site?.Name || '';
+        const customerName = link?.raw?.Customer?.Name || '';
+        const convTask = await ensureMaintenanceConversionTask({
+          jobId: String(jobId),
+          jobNumber: link?.jobNumber || jobId,
+          siteName,
+          customerName,
+          quoteId: link?.quoteId,
+          assignedToId
+        });
+        logger.info(`Maintenance conversion task for job ${jobId}: created=${convTask.created} subject="${convTask.subject}"`);
+      } catch (e) {
+        logger.warn(`Could not create maintenance conversion task for job ${jobId}: ${e.message}`);
+      }
+
       const note =
         `[Maintenance Contract Automation]\n` +
         `Event: Quote converted to Job (maintenance flagged)\n` +

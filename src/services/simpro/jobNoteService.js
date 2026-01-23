@@ -102,15 +102,18 @@ export async function createJobNoteOnce(jobId, noteText, uniqueKey) {
   const key = String(uniqueKey || '').trim();
   if (!key) throw new Error('uniqueKey is required for createJobNoteOnce');
 
-  const existing = await searchJobNotes(jobId, key);
-  const already = existing.some((n) => {
-    const note = String(n?.Note || n?.note || n?.Text || n?.text || n?.Description || n?.description || '');
-    return note.includes(key);
-  });
-  if (already) return { created: false, key };
+  // IMPORTANT:
+  // In this tenant, the Job Notes endpoint does NOT support SEARCH (returns 405).
+  // We therefore rely on upstream idempotency (tag alreadyPresent checks, task dedupe) and
+  // an in-memory guard to avoid immediate duplicates on bursty webhook delivery.
+  const dedupeKey = `${String(jobId)}:${key}`;
+  if (!globalThis.__jobNoteOnceKeys) globalThis.__jobNoteOnceKeys = new Set();
+  const set = globalThis.__jobNoteOnceKeys;
+  if (set.has(dedupeKey)) return { created: false, key, deduped: true };
+  set.add(dedupeKey);
+  if (set.size > 50000) set.clear();
 
-  // Keep the unique key for idempotency, but present it in a more human-friendly way.
   await createJobNote(jobId, `${noteText}\n\nAutomation Key: ${key}`);
-  return { created: true, key };
+  return { created: true, key, deduped: false };
 }
 

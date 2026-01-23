@@ -222,6 +222,56 @@ async function createTask({ subject, description, dueDateYYYYMMDD, assignedToId,
   return res.data;
 }
 
+export async function ensureMaintenanceConversionTask({
+  jobId,
+  jobNumber,
+  siteName,
+  customerName,
+  quoteId,
+  assignedToId = 12
+}) {
+  const subject = `Maintenance Contract Included – Review Required - Job #${jobNumber || jobId}`;
+
+  // Idempotency: if a task with same subject exists, skip.
+  const existing = await searchTasksBySubject(subject);
+  const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
+  if (already) return { created: false, subject };
+
+  const description =
+    `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4;">` +
+      `<p><strong>Maintenance Contract Automation</strong></p>` +
+      `<p>This job was converted from a quote flagged with a maintenance contract.</p>` +
+      `<hr/>` +
+      `<p><strong>Details</strong><br/>` +
+      `Job: <strong>#${String(jobNumber || jobId)}</strong><br/>` +
+      (quoteId ? `Quote ID: ${escapeHtml(String(quoteId))}<br/>` : '') +
+      (customerName ? `Customer: ${escapeHtml(String(customerName))}<br/>` : '') +
+      (siteName ? `Site: ${escapeHtml(String(siteName))}<br/>` : '') +
+      `</p>` +
+      `<p><strong>Action required</strong><br/>` +
+      `Please review the job/quote for maintenance details and ensure renewal value and customer contact details are correct.</p>` +
+    `</div>`;
+
+  const due = new Date().toISOString().slice(0, 10);
+  const task = await createTask({
+    subject,
+    description,
+    dueDateYYYYMMDD: due,
+    assignedToId,
+    jobId
+  });
+  return { created: true, subject, taskId: task?.ID || task?.Id || task?.id || null };
+}
+
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function probeCreateTaskJobAssociation({ jobId, subjectBase = 'Probe Task Job Association', assignedToId = 12 }) {
   const url = `/companies/${companyId}/tasks/`;
   const due = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
