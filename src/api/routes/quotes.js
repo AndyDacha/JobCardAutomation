@@ -232,9 +232,9 @@ async function processQuoteWebhookAsync(webhookData) {
   const triggerFieldName = process.env.QUOTE_TRIGGER_CUSTOM_FIELD_NAME || '';
   const yesValue = process.env.QUOTE_TRIGGER_YES_VALUE || 'YES';
 
-  // Assignee (testing default: Staff ID 10)
-  const assigneeStaffId = process.env.QUOTE_REVIEW_ASSIGNEE_STAFF_ID || '10';
-  const assigneeName = process.env.QUOTE_REVIEW_ASSIGNEE_NAME || 'Staff 10';
+  // Assignee (default: Carol O'Keeffe / Staff ID 12). Override via env vars for testing.
+  const assigneeStaffId = process.env.QUOTE_REVIEW_ASSIGNEE_STAFF_ID || '12';
+  const assigneeName = process.env.QUOTE_REVIEW_ASSIGNEE_NAME || "Carol O'Keeffe";
 
   if (!triggerFieldId && !triggerFieldName) {
     logger.warn('QUOTE_TRIGGER_CUSTOM_FIELD_ID or QUOTE_TRIGGER_CUSTOM_FIELD_NAME must be set to evaluate the YES condition. Skipping.');
@@ -329,7 +329,8 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
     if (Number(statusId) !== 12) return;
 
     const tagId = Number(process.env.MAINTENANCE_CONTRACT_TAG_ID || 256);
-    const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 10);
+    // Default: Carol (12). Override via env var for testing.
+    const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
 
     const link = await getJobLinkInfo(jobId);
     const raw = link?.raw || {};

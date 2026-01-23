@@ -13,12 +13,12 @@ router.get('/status', (req, res) => {
 // Query:
 // - dryRun=true|false (default true)
 // - tagId (default 256)
-// - assignedToId (default MAINTENANCE_TASK_ASSIGNEE_ID or 10)
+  // - assignedToId (default MAINTENANCE_TASK_ASSIGNEE_ID or 12)
 router.post('/run', async (req, res) => {
   try {
     const dryRun = String(req.query?.dryRun ?? 'true').toLowerCase() !== 'false';
     const tagId = Number(req.query?.tagId ?? 256);
-    const assignedToId = Number(req.query?.assignedToId ?? process.env.MAINTENANCE_TASK_ASSIGNEE_ID ?? 10);
+    const assignedToId = Number(req.query?.assignedToId ?? process.env.MAINTENANCE_TASK_ASSIGNEE_ID ?? 12);
     const includeExpiryReminder = String(req.query?.includeExpiryReminder ?? 'false').toLowerCase() === 'true';
 
     const result = await runRenewalRunner({ tagId, assignedToId, dryRun, includeExpiryReminder });
@@ -95,13 +95,13 @@ router.get('/preview/:jobId', async (req, res) => {
 // Query:
 // - dryRun=true|false (default true)
 // - tagId (default 256)
-// - assignedToId (default MAINTENANCE_TASK_ASSIGNEE_ID or 10)
+// - assignedToId (default MAINTENANCE_TASK_ASSIGNEE_ID or 12)
 router.post('/create-completion-task/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     const dryRun = String(req.query?.dryRun ?? 'true').toLowerCase() !== 'false';
     const tagId = Number(req.query?.tagId ?? 256);
-    const assignedToId = Number(req.query?.assignedToId ?? process.env.MAINTENANCE_TASK_ASSIGNEE_ID ?? 10);
+    const assignedToId = Number(req.query?.assignedToId ?? process.env.MAINTENANCE_TASK_ASSIGNEE_ID ?? 12);
 
     const link = await getJobLinkInfo(jobId);
     const raw = link?.raw || {};
