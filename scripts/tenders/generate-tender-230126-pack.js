@@ -41,6 +41,118 @@ function listBidLibraryEvidence() {
   ];
 }
 
+function buildComplianceMatrix230126(evidence) {
+  const hasSSAIB = Boolean(evidence.find((x) => x.req.includes('SSAIB'))?.file);
+  const hasISO27001 = Boolean(evidence.find((x) => x.req.includes('ISO 27001'))?.file);
+  const hasInsurance = Boolean(evidence.find((x) => x.req === 'Insurance')?.file);
+
+  const rows = [
+    {
+      clause: '2',
+      req: 'Design & Build including surveys, removal/disposal, temp security, install, integration, commissioning, training, maintenance',
+      resp: 'YES – included with explicit continuity strategy and phased delivery.',
+      ev: 'tender-response-pack.md; rams.md; programme.md',
+      status: 'Provided'
+    },
+    {
+      clause: '4',
+      req: 'Network constraints: VLAN segregation, no internet exposure, compliance with Authority cyber policy, explicit network assumptions',
+      resp: 'YES – VLAN segregation and no internet exposure confirmed; assumptions logged.',
+      ev: 'network-diagrams.md; assumptions-log.md',
+      status: 'Provided'
+    },
+    {
+      clause: '5',
+      req: 'CCTV quantities/retention/analytics/evidential export; maintain coverage during replacement',
+      resp: 'YES – site-based quantities per RFP categories; 45-day retention; continuity strategy.',
+      ev: 'equipment-schedules.md; compliance-matrix.md',
+      status: 'Provided'
+    },
+    {
+      clause: '6',
+      req: 'Access Control door schedule (critical; disqualification risk if missing)',
+      resp: 'Door schedule template included; RFP does not include door-by-door data to complete it at tender stage.',
+      ev: 'equipment-schedules.md (door schedule template); assumptions-log.md',
+      status: 'Requires clarification'
+    },
+    {
+      clause: '7',
+      req: 'Intruder: Grade 2/3 per site; dual-path; zoning/partitioning; integration with CCTV triggers',
+      resp: 'YES – detection types, zoning/partitioning, dual-path and CCTV integration logic included.',
+      ev: 'tender-response-pack.md (Section 7); equipment-schedules.md',
+      status: 'Provided'
+    },
+    {
+      clause: '8',
+      req: 'Data protection & cyber: DPIA, encryption, 24h incident notification, right of audit',
+      resp: 'YES – DPIA support, encryption approach, 24h notification and auditability confirmed.',
+      ev: 'tender-response-pack.md (Section 4); assumptions-log.md; evidence-register.md',
+      status: hasISO27001 ? 'Provided' : 'Requires clarification'
+    },
+    {
+      clause: '10',
+      req: 'Pricing fixed; no post-award increases; breakdown by site and system',
+      resp: 'Partially – pricing structure and templates provided; sell values require completion.',
+      ev: 'pricing-schedule-sell-template.csv; pricing-methodology.md',
+      status: 'Requires clarification'
+    },
+    {
+      clause: '13',
+      req: 'Submission artefacts: compliance matrix, equipment schedules, network diagrams, RAMS, risk register, programme, assumptions/deviations logs, pricing schedules, social value',
+      resp: 'YES – all artefacts included in PDF pack.',
+      ev: 'Included documents list; individual files',
+      status: 'Provided'
+    },
+    {
+      clause: '13',
+      req: 'Evidence attachments (certifications/insurance) confirmed included',
+      resp: 'Evidence register references bid library; confirm attachments uploaded with submission.',
+      ev: 'evidence-register.md',
+      status: hasSSAIB && hasInsurance ? 'Provided' : 'Requires clarification'
+    }
+  ];
+
+  const lines = [];
+  lines.push('# Compliance Matrix (clause-referenced, scorable)');
+  lines.push('');
+  lines.push('| RFP clause | Requirement (short) | Response (specific) | Evidence ref | Status |');
+  lines.push('|---|---|---|---|---|');
+  for (const r of rows) lines.push(`| ${r.clause} | ${r.req} | ${r.resp} | ${r.ev} | **${r.status}** |`);
+  lines.push('');
+  lines.push('Status key: **Provided** / **Missing** / **Requires clarification**.');
+  lines.push('');
+  return lines.join('\n');
+}
+
+function buildTenderChecklist230126(evidence) {
+  const hasSSAIB = Boolean(evidence.find((x) => x.req.includes('SSAIB'))?.file);
+  const hasInsurance = Boolean(evidence.find((x) => x.req === 'Insurance')?.file);
+
+  const items = [
+    { item: 'Compliance matrix', status: 'INCLUDED', notes: 'Included in PDF + file: compliance-matrix.md' },
+    { item: 'Detailed equipment schedules', status: 'INCLUDED', notes: 'Included: equipment-schedules.md (CCTV counts per RFP; ACS door template; Intruder schedule)' },
+    { item: 'Network diagrams', status: 'INCLUDED', notes: 'Included: network-diagrams.md (logical)' },
+    { item: 'RAMS', status: 'INCLUDED', notes: 'Included: rams.md (framework; site-specific post-survey)' },
+    { item: 'Risk register', status: 'INCLUDED', notes: 'Included: risk-register.md' },
+    { item: 'Programme', status: 'INCLUDED', notes: 'Included: programme.md (indicative per site category)' },
+    { item: 'Assumptions log', status: 'INCLUDED', notes: 'Included: assumptions-log.md' },
+    { item: 'Deviations log', status: 'INCLUDED', notes: 'Included: deviations-log.md (currently none)' },
+    { item: 'Pricing schedules (completed)', status: 'MISSING', notes: 'Template included; sell values must be completed for submission scoring' },
+    { item: 'Social value commitments', status: 'INCLUDED', notes: 'Included: social-value.md' },
+    { item: 'Certifications/insurance attached', status: (hasSSAIB && hasInsurance) ? 'INCLUDED' : 'REQUIRES CLARIFICATION', notes: 'Evidence register references bid library; confirm uploaded with submission' },
+    { item: 'Door-by-door ACS schedule (if required at tender stage)', status: 'REQUIRES CLARIFICATION', notes: 'Template included; must be completed from mandatory surveys unless Authority provides door schedules' }
+  ];
+
+  const lines = [];
+  lines.push('# Tender Questions Checklist (must-submit items)');
+  lines.push('');
+  lines.push('| Must-submit item | Status | Notes |');
+  lines.push('|---|---|---|');
+  for (const r of items) lines.push(`| ${r.item} | **${r.status}** | ${r.notes} |`);
+  lines.push('');
+  return lines.join('\n');
+}
+
 function extractInfo(t) {
   const ref = (t.match(/RFP Reference:\s*([A-Z0-9-]+)/i) || [])[1] || 'RFP-SEC-2026-EXTREME';
   const issueDate = (t.match(/Issue Date:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{4})/i) || [])[1] || '';
@@ -59,6 +171,7 @@ function main() {
   );
   const rfp = fs.existsSync(rfpTxtPath) ? readText(rfpTxtPath) : '';
   const info = extractInfo(rfp);
+  const bidEvidence = listBidLibraryEvidence();
 
   // --- Core submission pack
   writeText(path.join(outDir, 'tender-response-pack.md'), mk(`Tender Submission Response Pack — ${info.ref}`, [
@@ -353,6 +466,10 @@ function main() {
     '| Environmental controls | Waste handling + WEEE | `TBC` |'
   ]));
 
+  // Scoring artefacts (for evaluator relevance)
+  writeText(path.join(outDir, 'compliance-matrix-scored.md'), buildComplianceMatrix230126(bidEvidence));
+  writeText(path.join(outDir, 'tender-questions-checklist.md'), buildTenderChecklist230126(bidEvidence));
+
   // Build a submission-ready PDF from all artefacts.
   try {
     const pdfOut = path.join(outDir, 'tender-submission.pdf');
@@ -369,6 +486,10 @@ function main() {
         pdfOut,
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'tender-questions-checklist.md'),
+        '--include',
+        path.join(outDir, 'compliance-matrix-scored.md'),
         '--include',
         path.join(outDir, 'compliance-matrix.md'),
         '--include',

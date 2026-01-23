@@ -61,6 +61,101 @@ function listBidLibraryEvidence() {
   ];
 }
 
+function buildComplianceMatrix220126(info, evidence) {
+  // Clause refs are aligned to the section numbering in Tender Doc.docx (mock ITT).
+  const rows = [
+    {
+      clause: '2.1–2.3',
+      req: 'Provide integrated CCTV, Access Control and Intruder solution compliant with relevant British Standards',
+      resp: 'YES – integrated CCTV/ACS/Intruder delivery across multiple sites; standards compliance confirmed.',
+      ev: 'tender-response-pack.md (Sections 3–5)',
+      status: 'Provided'
+    },
+    {
+      clause: '7',
+      req: 'Commissioning & handover deliverables: SAT, training, as-fitted drawings, asset registers, config backups, O&M manuals',
+      resp: 'YES – commissioning, SAT, training, as-fitted/asset register/config backups/O&M manuals provided as deliverables.',
+      ev: 'tender-response-pack.md (Section 3); mobilisation-plan-90-days.md',
+      status: 'Provided'
+    },
+    {
+      clause: '8',
+      req: 'Maintenance & support: planned maintenance (min 2 visits p.a.) + reactive maintenance + emergency call-out',
+      resp: 'YES – planned maintenance (min 2 visits p.a.) + reactive + 24/7 availability.',
+      ev: 'tender-response-pack.md (Section 5)',
+      status: 'Provided'
+    },
+    {
+      clause: '9',
+      req: 'Data protection & information security (UK GDPR, DPA 2018, ISO 27001 or equivalent, secure evidence handling, chain of custody)',
+      resp: 'YES – UK GDPR/DPA controls, secure evidence handling and audit trails; InfoSec evidence referenced.',
+      ev: 'tender-response-pack.md (Section 4); evidence-register.md',
+      status: evidence.find((x) => x.req.includes('ISO 27001'))?.file ? 'Provided' : 'Requires clarification'
+    },
+    {
+      clause: '10',
+      req: 'H&S and environmental controls (policy, RAMS, waste handling, carbon reduction)',
+      resp: 'YES – H&S policy and RAMS process; waste/WEEE and environmental controls supported.',
+      ev: 'evidence-register.md; risk-register.md; social-value.md',
+      status: evidence.find((x) => x.req === 'H&S Policy')?.file ? 'Provided' : 'Requires clarification'
+    },
+    {
+      clause: '11',
+      req: 'Quality management + SSAIB/NSI certification (mandatory)',
+      resp: 'YES – SSAIB/NSI certification referenced.',
+      ev: 'evidence-register.md',
+      status: evidence.find((x) => x.req.includes('SSAIB'))?.file ? 'Provided' : 'Missing'
+    },
+    {
+      clause: '13–19',
+      req: 'Tender submission requirements: completed response doc, pricing schedule, policies/certs, evidence of experience, minimum 3 case studies, conflicts declaration',
+      resp: 'Partially provided – response, supporting artefacts, evidence register and example case studies included; pricing remains a template; conflicts declaration requires signed Trust form.',
+      ev: 'tender-response-pack.md; pricing-schedule-sell-template.csv; evidence-register.md; case-studies.md',
+      status: 'Requires clarification'
+    }
+  ];
+
+  const lines = [];
+  lines.push('# Compliance Matrix (clause-referenced, scorable)');
+  lines.push('');
+  lines.push('| ITT clause | Requirement (short) | Response (specific) | Evidence ref | Status |');
+  lines.push('|---|---|---|---|---|');
+  for (const r of rows) {
+    lines.push(`| ${r.clause} | ${r.req} | ${r.resp} | ${r.ev} | **${r.status}** |`);
+  }
+  lines.push('');
+  lines.push('Status key: **Provided** / **Missing** / **Requires clarification**.');
+  lines.push('');
+  return lines.join('\n');
+}
+
+function buildTenderChecklist220126(evidence) {
+  const hasSSAIB = Boolean(evidence.find((x) => x.req.includes('SSAIB'))?.file);
+  const hasInsurance = Boolean(evidence.find((x) => x.req.includes('Insurance'))?.file);
+
+  const items = [
+    { item: 'Completed Tender Response Document', status: 'INCLUDED', notes: 'Included in PDF (tender-response-pack.md)' },
+    { item: 'Pricing Schedule (completed rates/prices)', status: 'MISSING', notes: 'Template provided; requires completion with sell values per tender requirements' },
+    { item: 'Policies & certifications (SSAIB/NSI, ISO, H&S, InfoSec)', status: hasSSAIB ? 'INCLUDED' : 'MISSING', notes: 'Evidence register references bid library; confirm attachments uploaded' },
+    { item: 'Insurance certificates meeting minimums', status: hasInsurance ? 'INCLUDED' : 'REQUIRES CLARIFICATION', notes: 'Referenced in evidence register; confirm cover limits match ITT' },
+    { item: 'Key personnel', status: 'INCLUDED (ROLE PROFILES)', notes: 'Roles and profiles included; named individuals can be added if required' },
+    { item: 'Case studies (minimum 3)', status: 'INCLUDED (REDACTED EXAMPLES)', notes: 'Three example case studies included; provide client-specific versions for final submission' },
+    { item: 'Conflict of interest declaration', status: 'REQUIRES CLARIFICATION', notes: 'Trust form must be signed/completed and uploaded via portal (not embedded here)' },
+    { item: 'Deviations stated (or none)', status: 'INCLUDED', notes: 'Deviations log included; currently “none”' }
+  ];
+
+  const lines = [];
+  lines.push('# Tender Questions Checklist (must-submit items)');
+  lines.push('');
+  lines.push('| Must-submit item | Status | Notes |');
+  lines.push('|---|---|---|');
+  for (const r of items) lines.push(`| ${r.item} | **${r.status}** | ${r.notes} |`);
+  lines.push('');
+  lines.push('This checklist is included to make submission risk visible before upload.');
+  lines.push('');
+  return lines.join('\n');
+}
+
 function main() {
   const extractDir = path.join(__dirname, '../../tender-extract-tender-220126');
   const outDir = path.join(__dirname, '../../tender-qna/tender-220126');
@@ -68,6 +163,7 @@ function main() {
   const ittTxtPath = path.join(extractDir, 'Tender_Learning__Tender_Test__Tender_22.01.26__Tender_Doc.docx.txt');
   const itt = fs.existsSync(ittTxtPath) ? readText(ittTxtPath) : '';
   const info = extractInfo(itt);
+  const bidEvidence = listBidLibraryEvidence();
 
   // --- Pricing templates (sell-only). We don't have a BoM/schedule in this tender doc.
   const pricingCsv = [];
@@ -267,6 +363,10 @@ function main() {
     '- Conflict of interest declaration (to attach/complete).'
   ].filter(Boolean)));
 
+  // Scoring artefacts (for relevance/procurement)
+  writeText(path.join(outDir, 'compliance-matrix.md'), buildComplianceMatrix220126(info, bidEvidence));
+  writeText(path.join(outDir, 'tender-questions-checklist.md'), buildTenderChecklist220126(bidEvidence));
+
   // Build a submission-ready PDF.
   try {
     const pdfOut = path.join(outDir, 'tender-submission.pdf');
@@ -283,6 +383,10 @@ function main() {
         pdfOut,
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'tender-questions-checklist.md'),
+        '--include',
+        path.join(outDir, 'compliance-matrix.md'),
         '--include',
         path.join(outDir, 'evidence-register.md'),
         '--include',
