@@ -10,6 +10,8 @@ function main() {
   const sources = [
     path.join(repoRoot, 'Tender Learning/Dacha Learning Documents'),
     path.join(repoRoot, 'Tender Learning/NHS Dorset'),
+    path.join(repoRoot, 'Tender Learning/NHS Dorset/Bryanston School'),
+    path.join(repoRoot, 'Tender Learning/Terms-and-Conditions-Dacha-SSI-V5.pdf'),
     path.join(repoRoot, 'Tender Learning/PureGym Case study.pdf'),
     path.join(repoRoot, 'Tender Learning/ASC Case Study.pdf')
   ];

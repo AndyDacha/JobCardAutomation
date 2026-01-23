@@ -27,6 +27,11 @@ export function scoreDocForRequirement(reqTokens, doc) {
     req.includes('case-study') ||
     req.includes('references') ||
     (req.includes('previous') && req.includes('projects'));
+  const wantsTandC =
+    (req.includes('terms') && req.includes('conditions')) || req.includes('t&c') || (req.includes('liability') && req.includes('limitations'));
+  const wantsSla = req.includes('sla') || (req.includes('service') && req.includes('level')) || req.includes('kpi') || req.includes('uptime');
+  const wantsSupportContract = (req.includes('support') && req.includes('contract')) || (req.includes('maintenance') && req.includes('support'));
+  const wantsMaintenanceContract = req.includes('maintenance') && req.includes('contract');
   const wantsHandover =
     (req.includes('handover') || req.includes('commissioning') || req.includes('as-fitted') || req.includes('as fitted')) &&
     (req.includes('drawings') || req.includes('asset register') || req.includes('o&m') || req.includes('manual'));
@@ -37,6 +42,12 @@ export function scoreDocForRequirement(reqTokens, doc) {
   if (wantsHS && dt === 'HS_POLICY') prior += 10;
   if (wantsRAMS && (dt === 'RAMS' || dt === 'RISK_ASSESSMENT' || dt === 'METHOD_STATEMENT')) prior += 12;
   if (wantsCaseStudy && dt === 'CASE_STUDY') prior += 15;
+  if (wantsTandC && dt === 'TERMS_AND_CONDITIONS') prior += 18;
+  if (wantsSla && dt === 'SLA') prior += 18;
+  // Often SLAs are embedded inside support/maintenance contract documents.
+  if (wantsSla && dt === 'SUPPORT_CONTRACT') prior += 10;
+  if (wantsSupportContract && dt === 'SUPPORT_CONTRACT') prior += 14;
+  if (wantsMaintenanceContract && dt === 'MAINTENANCE_CONTRACT') prior += 14;
   if (
     wantsHandover &&
     (dt === 'AS_FITTED' || dt === 'ASSET_REGISTER' || dt === 'IP_SCHEDULE' || dt === 'PATCH_SCHEDULE' || dt === 'O_AND_M')

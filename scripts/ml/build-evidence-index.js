@@ -21,6 +21,13 @@ function guessDocType(filename) {
   if (f.includes('risk') && f.includes('assessment')) return 'RISK_ASSESSMENT';
   if (f.includes('method') && f.includes('statement')) return 'METHOD_STATEMENT';
   if (f.includes('case') && f.includes('study')) return 'CASE_STUDY';
+  if (f.includes('terms') && f.includes('conditions')) return 'TERMS_AND_CONDITIONS';
+  if (f.includes('t&c') || f.includes('terms and conditions')) return 'TERMS_AND_CONDITIONS';
+  if (f.includes('sla') || (f.includes('service') && f.includes('level'))) return 'SLA';
+  if (f.includes('support') && f.includes('contract')) return 'SUPPORT_CONTRACT';
+  if (f.includes('annual') && f.includes('support')) return 'SUPPORT_CONTRACT';
+  if (f.includes('maintenance') && f.includes('contract')) return 'MAINTENANCE_CONTRACT';
+  if (f.includes('kpi') || (f.includes('response') && (f.includes('time') || f.includes('times')))) return 'SLA';
   if (f.includes('as fitted') || f.includes('as-fitted')) return 'AS_FITTED';
   if (f.includes('asset') && f.includes('register')) return 'ASSET_REGISTER';
   if (f.includes('ip') && f.includes('schedule')) return 'IP_SCHEDULE';
@@ -32,7 +39,19 @@ function guessDocType(filename) {
   if (f.includes('iso') && f.includes('14001')) return 'ISO14001';
   if (f.includes('iso') && f.includes('27001')) return 'ISO27001';
   if (f.includes('isms') || f.includes('statement of applicability')) return 'ISMS';
-  if (f.includes('insurance') || f.includes('policy') || f.includes('certificate') || f.includes('schedule')) return 'INSURANCE';
+  // Keep insurance classification narrow; "schedule" appears in lots of non-insurance docs (door schedules, patch schedules, etc).
+  if (
+    f.includes('insurance') ||
+    f.includes('liability') ||
+    f.includes('indemnity') ||
+    f.includes('employers') ||
+    f.includes('public') && f.includes('liability') ||
+    f.includes('professional') && f.includes('indemnity') ||
+    f.includes('sutton specialist risks') ||
+    f.includes('ssr combined policy') ||
+    f.includes('combined policy')
+  )
+    return 'INSURANCE';
   return 'OTHER';
 }
 
@@ -85,6 +104,8 @@ function main() {
   const sources = [
     path.join(repoRoot, 'Tender Learning/Dacha Learning Documents'),
     path.join(repoRoot, 'Tender Learning/NHS Dorset'),
+    path.join(repoRoot, 'Tender Learning/NHS Dorset/Bryanston School'),
+    path.join(repoRoot, 'Tender Learning/Terms-and-Conditions-Dacha-SSI-V5.pdf'),
     path.join(repoRoot, 'Tender Learning/PureGym Case study.pdf'),
     path.join(repoRoot, 'Tender Learning/ASC Case Study.pdf')
   ];
@@ -130,7 +151,11 @@ function main() {
       IP_SCHEDULE: ['ip', 'schedule', 'addressing', 'vlans', 'subnet', 'ports'],
       PATCH_SCHEDULE: ['patch', 'schedule', 'ports', 'cabinet', 'label', 'as-built'],
       O_AND_M: ['operation', 'maintenance', 'o&m', 'handover', 'manuals', 'procedures'],
-      COMMERCIAL_RULES: ['commercial', 'assumptions', 'training', 'commissioning', 'labour', 'travel', 'accommodation']
+      COMMERCIAL_RULES: ['commercial', 'assumptions', 'training', 'commissioning', 'labour', 'travel', 'accommodation'],
+      TERMS_AND_CONDITIONS: ['terms', 'conditions', 't&c', 'warranty', 'liability', 'variations', 'payment', 'title', 'risk'],
+      SLA: ['sla', 'service', 'level', 'response', 'resolution', 'kpi', 'availability', 'uptime', 'p1', 'p2', 'p3'],
+      SUPPORT_CONTRACT: ['support', 'contract', 'maintenance', 'pppm', 'preventative', 'reactive', 'helpdesk', 'callout'],
+      MAINTENANCE_CONTRACT: ['maintenance', 'contract', 'renewal', 'term', 'scope', 'ppm', 'callout', 'exclusions']
     };
     const hinted = typeHints[docType] || [];
 
