@@ -15,6 +15,11 @@ function writeText(p, s) {
   fs.writeFileSync(p, s, 'utf8');
 }
 
+function safePdfBasename(p) {
+  const base = path.basename(p).replace(/\.(md|markdown)$/i, '');
+  return base.replace(/[^a-z0-9._ -]/gi, '_').trim() || 'document';
+}
+
 function csvEscape(v) {
   const s = String(v ?? '');
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -41,14 +46,14 @@ function listBidLibraryEvidence() {
   ];
 }
 
-function buildComplianceMatrix230126(evidence) {
+function getComplianceRows230126(evidence) {
   const hasSSAIB = Boolean(evidence.find((x) => x.req.includes('SSAIB'))?.file);
   const hasISO27001 = Boolean(evidence.find((x) => x.req.includes('ISO 27001'))?.file);
   const hasInsurance = Boolean(evidence.find((x) => x.req === 'Insurance')?.file);
 
   // Enforcement rule: every clause row ends in one of:
   // ✅ Answered / ⚠️ Requires clarification / ❌ Not applicable (with justification)
-  const rows = [
+  return [
     {
       clause: '2',
       req: 'Design & Build including surveys, removal/disposal, temp security, install, integration, commissioning, training, maintenance',
@@ -113,6 +118,10 @@ function buildComplianceMatrix230126(evidence) {
       status: hasSSAIB && hasInsurance ? '✅ Answered' : '⚠️ Requires clarification'
     }
   ];
+}
+
+function buildComplianceMatrix230126(evidence) {
+  const rows = getComplianceRows230126(evidence);
 
   const lines = [];
   lines.push('# Compliance Matrix (clause-referenced, scorable)');
@@ -120,6 +129,22 @@ function buildComplianceMatrix230126(evidence) {
   lines.push('| RFP clause | Requirement (short) | Response (specific) | Evidence ref | Status |');
   lines.push('|---|---|---|---|---|');
   for (const r of rows) lines.push(`| ${r.clause} | ${r.req} | ${r.resp} | ${r.ev} | **${r.status}** |`);
+  lines.push('');
+  lines.push('State key: **✅ Answered** / **⚠️ Requires clarification** / **❌ Not applicable (with justification)**.');
+  lines.push('');
+  return lines.join('\n');
+}
+
+function buildLineByLineAnswers230126(evidence) {
+  const rows = getComplianceRows230126(evidence);
+  const lines = [];
+  lines.push('# RFP Answers (line-by-line, compliance-led)');
+  lines.push('');
+  lines.push('Each row below maps directly to an RFP clause/requirement, states compliance, answers specifically, and points to evidence.');
+  lines.push('');
+  lines.push('| RFP clause | Requirement (plain English) | State | Specific answer | Evidence / where |');
+  lines.push('|---|---|---|---|---|');
+  for (const r of rows) lines.push(`| ${r.clause} | ${r.req} | **${r.status}** | ${r.resp} | ${r.ev} |`);
   lines.push('');
   lines.push('State key: **✅ Answered** / **⚠️ Requires clarification** / **❌ Not applicable (with justification)**.');
   lines.push('');
@@ -470,6 +495,7 @@ function main() {
 
   // Scoring artefacts (for evaluator relevance)
   writeText(path.join(outDir, 'compliance-matrix-scored.md'), buildComplianceMatrix230126(bidEvidence));
+  writeText(path.join(outDir, 'rfp-answers-line-by-line.md'), buildLineByLineAnswers230126(bidEvidence));
   writeText(path.join(outDir, 'tender-questions-checklist.md'), buildTenderChecklist230126(bidEvidence));
 
   // Build a submission-ready PDF from all artefacts.
@@ -488,6 +514,8 @@ function main() {
         pdfOut,
         '--include',
         path.join(outDir, 'tender-response-pack.md'),
+        '--include',
+        path.join(outDir, 'rfp-answers-line-by-line.md'),
         '--include',
         path.join(outDir, 'tender-questions-checklist.md'),
         '--include',
@@ -520,6 +548,53 @@ function main() {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn(`PDF generation failed: ${e?.message || e}`);
+  }
+
+  // Build individual PDFs for portal uploads (one per supporting doc).
+  const perDocPdfDir = path.join(outDir, 'supporting-pdfs');
+  fs.mkdirSync(perDocPdfDir, { recursive: true });
+  const pdfScript = path.join(__dirname, './build-submission-pdf.js');
+  const perDocMdPaths = [
+    path.join(outDir, 'rfp-answers-line-by-line.md'),
+    path.join(outDir, 'tender-questions-checklist.md'),
+    path.join(outDir, 'compliance-matrix-scored.md'),
+    path.join(outDir, 'compliance-matrix.md'),
+    path.join(outDir, 'equipment-schedules.md'),
+    path.join(outDir, 'network-diagrams.md'),
+    path.join(outDir, 'rams.md'),
+    path.join(outDir, 'risk-register.md'),
+    path.join(outDir, 'programme.md'),
+    path.join(outDir, 'assumptions-log.md'),
+    path.join(outDir, 'deviations-log.md'),
+    path.join(outDir, 'pricing-methodology.md'),
+    path.join(outDir, 'social-value.md'),
+    path.join(outDir, 'evidence-register.md'),
+    path.join(outDir, 'pricing-methodology.md')
+  ].filter((p) => fs.existsSync(p));
+
+  for (const mdPath of perDocMdPaths) {
+    const base = safePdfBasename(mdPath);
+    const outPdf = path.join(perDocPdfDir, `${base}.pdf`);
+    try {
+      execFileSync(
+        process.execPath,
+        [
+          pdfScript,
+          '--outDir',
+          outDir,
+          '--title',
+          `Supporting Document — ${info.ref}`,
+          '--outPdf',
+          outPdf,
+          '--include',
+          mdPath
+        ],
+        { stdio: 'inherit' }
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`Per-doc PDF generation failed for ${mdPath}: ${e?.message || e}`);
+    }
   }
 
   // eslint-disable-next-line no-console
