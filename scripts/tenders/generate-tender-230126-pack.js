@@ -25,6 +25,22 @@ function mk(title, lines) {
   return ['# ' + title, '', ...lines].join('\n');
 }
 
+function listBidLibraryEvidence() {
+  const dir = path.join(process.cwd(), 'Tender Learning/Dacha Learning Documents');
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir).filter((f) => /\.(pdf)$/i.test(f));
+  const pick = (re) => files.find((f) => re.test(f)) || '';
+
+  return [
+    { req: 'SSAIB / NSI certification', file: pick(/ssaib|nsi/i) },
+    { req: 'ISO 9001', file: pick(/iso\s*9001/i) },
+    { req: 'ISO 14001', file: pick(/iso\s*14001/i) },
+    { req: 'ISO 27001 (or equivalent)', file: pick(/iso\s*27001/i) || pick(/isms/i) || pick(/statement of applicability/i) },
+    { req: 'H&S Policy', file: pick(/health.*safety.*policy/i) },
+    { req: 'Insurance', file: pick(/combined policy|schedule - ssr|certificate - ssr|sutton/i) }
+  ];
+}
+
 function extractInfo(t) {
   const ref = (t.match(/RFP Reference:\s*([A-Z0-9-]+)/i) || [])[1] || 'RFP-SEC-2026-EXTREME';
   const issueDate = (t.match(/Issue Date:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{4})/i) || [])[1] || '';
@@ -330,12 +346,11 @@ function main() {
   writeText(path.join(outDir, 'evidence-register.md'), mk('Evidence Register (documents to attach)', [
     '| Requirement | Evidence | File (suggested name) |',
     '|---|---|---|',
-    '| SSAIB / NSI certification | Certificate (in date) | `SSAIB-or-NSI-certificate.pdf` |',
-    '| ISO 27001 (or equivalent) | Certificate or InfoSec statement | `ISO27001-or-equivalent.pdf` |',
-    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `Data-Protection-and-Evidence-Handling.pdf` |',
-    '| H&S policy | Signed policy + RAMS process | `Health-and-Safety-Policy.pdf` |',
-    '| Environmental controls | Waste handling + WEEE | `Environmental-Policy.pdf` |',
-    '| Insurance | As required by Authority | `Insurance-Certificates.pdf` |'
+    ...listBidLibraryEvidence().map((e) =>
+      `| ${e.req} | ${e.file ? 'Available in bid library' : 'Attach relevant evidence'} | ${e.file || '`TBC`'} |`
+    ),
+    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `TBC` |',
+    '| Environmental controls | Waste handling + WEEE | `TBC` |'
   ]));
 
   // Build a submission-ready PDF from all artefacts.

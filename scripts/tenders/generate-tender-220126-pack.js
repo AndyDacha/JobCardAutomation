@@ -45,6 +45,22 @@ function mk(title, lines) {
   return ['# ' + title, '', ...lines].join('\n');
 }
 
+function listBidLibraryEvidence() {
+  const dir = path.join(process.cwd(), 'Tender Learning/Dacha Learning Documents');
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir).filter((f) => /\.(pdf)$/i.test(f));
+  const pick = (re) => files.find((f) => re.test(f)) || '';
+
+  return [
+    { req: 'SSAIB / NSI certification (mandatory)', file: pick(/ssaib|nsi/i) },
+    { req: 'ISO 9001', file: pick(/iso\s*9001/i) },
+    { req: 'ISO 14001', file: pick(/iso\s*14001/i) },
+    { req: 'ISO 27001 (or equivalent)', file: pick(/iso\s*27001/i) || pick(/isms/i) || pick(/statement of applicability/i) },
+    { req: 'H&S Policy', file: pick(/health.*safety.*policy/i) },
+    { req: 'Insurance (PL/EL/PI)', file: pick(/combined policy|schedule - ssr|certificate - ssr|sutton/i) }
+  ];
+}
+
 function main() {
   const extractDir = path.join(__dirname, '../../tender-extract-tender-220126');
   const outDir = path.join(__dirname, '../../tender-qna/tender-220126');
@@ -175,14 +191,11 @@ function main() {
     '',
     '| Requirement | Evidence | File (suggested name) |',
     '|---|---|---|',
-    '| SSAIB / NSI certification (mandatory) | Certificate (in date) | `SSAIB-or-NSI-certificate.pdf` |',
-    '| ISO 9001 / 14001 (and 45001 desirable) | Certificates (in date) or alignment statement | `ISO-certificates.pdf` |',
-    '| ISO 27001 (or equivalent) | Certificate or InfoSec alignment statement | `ISO27001-or-equivalent.pdf` |',
-    '| H&S policy | Signed policy | `Health-and-Safety-Policy.pdf` |',
-    '| Environmental management | Policy/procedure | `Environmental-Policy.pdf` |',
-    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `Data-Protection-and-Evidence-Handling.pdf` |',
-    '| Insurance | PL/EL/PI certificates meeting minimums | `Insurance-Certificates.pdf` |',
-    '| Experience | Case studies (min 3) | `Case-Studies.pdf` (or included in submission PDF) |'
+    ...listBidLibraryEvidence().map((e) =>
+      `| ${e.req} | ${e.file ? 'Available in bid library' : 'Attach relevant evidence'} | ${e.file || '`TBC`'} |`
+    ),
+    '| GDPR/DPA compliance | DPIA approach + evidence handling SOP | `TBC` |',
+    '| Experience | Case studies (min 3) | `TBC` |'
   ]));
 
   writeText(path.join(outDir, 'pricing-methodology.md'), mk('Pricing Methodology (sell-only)', [
