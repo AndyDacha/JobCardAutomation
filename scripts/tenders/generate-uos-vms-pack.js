@@ -24,17 +24,42 @@ function safePdfBasename(p) {
   return base.replace(/[^a-z0-9._ -]/gi, '_').trim() || 'document';
 }
 
+function readBidLibraryIndex() {
+  const p = path.join(process.cwd(), 'ml-data/bid_library_index.json');
+  if (!fs.existsSync(p)) return { docs: [] };
+  try {
+    const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return { docs: Array.isArray(raw?.docs) ? raw.docs : [] };
+  } catch {
+    return { docs: [] };
+  }
+}
+
+function pickDocByType(docs, docType) {
+  const dt = String(docType || '').toUpperCase();
+  const match = docs.find((d) => String(d?.doc_type || '').toUpperCase() === dt);
+  return match?.path || '';
+}
+
+function pickDocsByType(docs, docType, limit = 3) {
+  const dt = String(docType || '').toUpperCase();
+  return docs
+    .filter((d) => String(d?.doc_type || '').toUpperCase() === dt)
+    .slice(0, limit)
+    .map((d) => d.path);
+}
+
 function listBidLibraryEvidence() {
-  const dir = path.join(process.cwd(), 'Tender Learning/Dacha Learning Documents');
-  if (!fs.existsSync(dir)) return [];
-  const files = fs.readdirSync(dir).filter((f) => /\.(pdf)$/i.test(f));
-  const pick = (re) => files.find((f) => re.test(f)) || '';
+  const { docs } = readBidLibraryIndex();
   return [
-    { req: 'ISO 9001', file: pick(/iso\s*9001/i) },
-    { req: 'ISO 14001', file: pick(/iso\s*14001/i) },
-    { req: 'ISO 27001 (or equivalent)', file: pick(/iso\s*27001/i) || pick(/isms/i) || pick(/statement of applicability/i) },
-    { req: 'H&S Policy', file: pick(/health.*safety.*policy/i) },
-    { req: 'Insurance certificates/schedule', file: pick(/insurance|policy|certificate/i) }
+    { req: 'ISO 9001', file: pickDocByType(docs, 'ISO9001') },
+    { req: 'ISO 14001', file: pickDocByType(docs, 'ISO14001') },
+    { req: 'ISO 27001 (or equivalent)', file: pickDocByType(docs, 'ISO27001') || pickDocByType(docs, 'ISMS') },
+    { req: 'H&S Policy', file: pickDocByType(docs, 'HS_POLICY') },
+    { req: 'Insurance certificates/schedule', file: pickDocByType(docs, 'INSURANCE') },
+    { req: 'Terms & Conditions', file: pickDocByType(docs, 'TERMS_AND_CONDITIONS') },
+    { req: 'Support/Maintenance contract sample', file: pickDocByType(docs, 'SUPPORT_CONTRACT') },
+    { req: 'Case studies (examples)', file: pickDocsByType(docs, 'CASE_STUDY', 5).join('; ') }
   ];
 }
 
@@ -182,7 +207,8 @@ function buildTenderChecklistUosVms(evidence) {
 
 function main() {
   const extractDir = path.join(process.cwd(), 'tender-extract-uos-vms');
-  const outDir = path.join(process.cwd(), 'tender-qna/uos-vms-2021UoS-0260');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outDir = path.join(process.cwd(), `tender-qna/uos-vms-2021UoS-0260-rerun-${stamp}`);
 
   const file2 = readText(
     path.join(extractDir, 'Tender_Learning__Tender_Test__University_of_Southampton_VMS___File_2__ITT_Scope_Guidance_and_Instructions.pdf.txt')
@@ -532,21 +558,33 @@ function main() {
   ]));
 
   writeText(path.join(outDir, 'case-studies.md'), mk('Case Studies & Testimonials (template for File 5 Q8.1(d))', [
-    'Provide 3 examples where possible:',
+    'Provide 3 examples where possible. Below are two existing case studies currently available in the evidence library; add a third (ideally CCTV/VMS with camera counts and operator workflows):',
     '',
-    '### Case Study 1 (TBC)',
+    '### Case Study 1 — ASC (available)',
+    '- **Document:** `Tender Learning/ASC Case Study.pdf`',
+    '- **Customer/sector:** TBC (confirm permission to reference)',
+    '- **Camera count:** TBC',
+    '- **Scope:** CCTV/security delivery (confirm if VMS/platform migration is included)',
+    '- **Special features:** TBC (audit/export/AD integration/resilience where applicable)',
+    '- **Outcome:** TBC',
+    '- **Reference contact:** TBC (subject to permission)',
+    '',
+    '### Case Study 2 — PureGym (available)',
+    '- **Document:** `Tender Learning/PureGym Case study.pdf`',
+    '- **Customer/sector:** Fitness/Leisure (confirm permission to reference)',
+    '- **Camera count:** TBC',
+    '- **Scope:** CCTV/security delivery (confirm if VMS/platform migration is included)',
+    '- **Special features:** TBC',
+    '- **Outcome:** TBC',
+    '- **Reference contact:** TBC (subject to permission)',
+    '',
+    '### Case Study 3 (TBC — ideally VMS replacement / ≥700 cameras)',
     '- **Customer/sector:** TBC',
     '- **Camera count:** TBC (confirm ≥700 where possible)',
     '- **Scope:** VMS replacement / migration / analytics / video wall',
     '- **Special features:** AD integration, audit trails, encrypted comms, resilience',
     '- **Outcome:** Performance against requirements and lessons learned',
     '- **Reference contact:** TBC (subject to permission)',
-    '',
-    '### Case Study 2 (TBC)',
-    '(as above)',
-    '',
-    '### Case Study 3 (TBC)',
-    '(as above)',
     ''
   ]));
 
@@ -682,6 +720,44 @@ function main() {
 
   // eslint-disable-next-line no-console
   console.log(`Wrote University of Southampton VMS reply to ${outDir}`);
+
+  // Also copy to a portal-friendly folder alongside the tender (so it’s easy to find and compare runs).
+  try {
+    const dest = path.join(
+      process.cwd(),
+      'Tender Learning/Tender Test/University of Southampton VMS',
+      `Dacha Reply - rerun ${stamp}`
+    );
+    fs.mkdirSync(dest, { recursive: true });
+
+    const copyRecursive = (src, dst) => {
+      if (!fs.existsSync(src)) return;
+      const st = fs.statSync(src);
+      if (st.isDirectory()) {
+        fs.mkdirSync(dst, { recursive: true });
+        for (const ent of fs.readdirSync(src)) copyRecursive(path.join(src, ent), path.join(dst, ent));
+      } else {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.copyFileSync(src, dst);
+      }
+    };
+
+    // Copy all generated artefacts
+    copyRecursive(outDir, dest);
+
+    // Rename combined PDF to a consistent portal name (keep the original too).
+    const combined = path.join(dest, 'tender-submission.pdf');
+    if (fs.existsSync(combined)) {
+      const portalName = path.join(dest, 'University of Southampton VMS - Dacha Tender Submission.pdf');
+      fs.copyFileSync(combined, portalName);
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(`Copied artefacts to ${dest}`);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`Copy to tender folder failed: ${e?.message || e}`);
+  }
 }
 
 main();
