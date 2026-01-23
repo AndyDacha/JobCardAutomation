@@ -19,6 +19,11 @@ function mk(title, lines) {
   return ['# ' + title, '', ...lines.filter(Boolean)].join('\n');
 }
 
+function safePdfBasename(p) {
+  const base = path.basename(p).replace(/\.(md|markdown)$/i, '');
+  return base.replace(/[^a-z0-9._ -]/gi, '_').trim() || 'document';
+}
+
 function listBidLibraryEvidence() {
   const dir = path.join(process.cwd(), 'Tender Learning/Dacha Learning Documents');
   if (!fs.existsSync(dir)) return [];
@@ -440,10 +445,11 @@ function main() {
   writeText(path.join(outDir, 'compliance-matrix-scored.md'), buildComplianceMatrixUosVms(info, evidence));
   writeText(path.join(outDir, 'tender-questions-checklist.md'), buildTenderChecklistUosVms(evidence));
 
-  // Build a submission-ready PDF from all artefacts.
+  const pdfScript = path.join(__dirname, './build-submission-pdf.js');
+
+  // Build a submission-ready PDF from all artefacts (single combined PDF).
   try {
     const pdfOut = path.join(outDir, 'tender-submission.pdf');
-    const pdfScript = path.join(__dirname, './build-submission-pdf.js');
     execFileSync(
       process.execPath,
       [
@@ -488,6 +494,51 @@ function main() {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn(`PDF generation failed: ${e?.message || e}`);
+  }
+
+  // Build individual PDFs for portal uploads (one per supporting doc).
+  const perDocPdfDir = path.join(outDir, 'supporting-pdfs');
+  fs.mkdirSync(perDocPdfDir, { recursive: true });
+
+  const perDocMdPaths = [
+    path.join(outDir, 'milestone-platform-summary.md'),
+    path.join(outDir, 'implementation-plan.md'),
+    path.join(outDir, 'demonstration-plan.md'),
+    path.join(outDir, 'uat-plan.md'),
+    path.join(outDir, 'sla-kpi-framework.md'),
+    path.join(outDir, 'training-outline.md'),
+    path.join(outDir, 'bcdr.md'),
+    path.join(outDir, 'exit-plan.md'),
+    path.join(outDir, 'case-studies.md'),
+    path.join(outDir, 'functional-nonfunctional-response-notes.md'),
+    path.join(outDir, 'evidence-register.md'),
+    path.join(outDir, 'compliance-matrix-scored.md'),
+    path.join(outDir, 'tender-questions-checklist.md')
+  ].filter((p) => fs.existsSync(p));
+
+  for (const mdPath of perDocMdPaths) {
+    const base = safePdfBasename(mdPath);
+    const outPdf = path.join(perDocPdfDir, `${base}.pdf`);
+    try {
+      execFileSync(
+        process.execPath,
+        [
+          pdfScript,
+          '--outDir',
+          outDir,
+          '--title',
+          `Supporting Document — ${info.ref}`,
+          '--outPdf',
+          outPdf,
+          '--include',
+          mdPath
+        ],
+        { stdio: 'inherit' }
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`Per-doc PDF generation failed for ${mdPath}: ${e?.message || e}`);
+    }
   }
 
   // eslint-disable-next-line no-console
