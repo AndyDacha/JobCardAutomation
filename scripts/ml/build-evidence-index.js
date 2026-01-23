@@ -17,13 +17,22 @@ function guessDocType(filename) {
   // Order matters: avoid classifying H&S policies as insurance just because they contain "policy".
   if (f.includes('health') && f.includes('safety')) return 'HS_POLICY';
   if (f.includes('hs') && f.includes('policy')) return 'HS_POLICY';
+  if (f.includes('rams')) return 'RAMS';
+  if (f.includes('risk') && f.includes('assessment')) return 'RISK_ASSESSMENT';
+  if (f.includes('method') && f.includes('statement')) return 'METHOD_STATEMENT';
+  if (f.includes('case') && f.includes('study')) return 'CASE_STUDY';
+  if (f.includes('as fitted') || f.includes('as-fitted')) return 'AS_FITTED';
+  if (f.includes('asset') && f.includes('register')) return 'ASSET_REGISTER';
+  if (f.includes('ip') && f.includes('schedule')) return 'IP_SCHEDULE';
+  if (f.includes('patch') && f.includes('schedule')) return 'PATCH_SCHEDULE';
+  if (f.includes('o&m') || f.includes('o & m') || f.includes('operation') && f.includes('maintenance')) return 'O_AND_M';
+  if (f.includes('commercial') || f.includes('markup') || f.includes('rules-of-thumb') || f.includes('rules of thumb')) return 'COMMERCIAL_RULES';
   if (f.includes('ssaib') || f.includes('nsi')) return 'SSAIB_NSI';
   if (f.includes('iso') && f.includes('9001')) return 'ISO9001';
   if (f.includes('iso') && f.includes('14001')) return 'ISO14001';
   if (f.includes('iso') && f.includes('27001')) return 'ISO27001';
   if (f.includes('isms') || f.includes('statement of applicability')) return 'ISMS';
   if (f.includes('insurance') || f.includes('policy') || f.includes('certificate') || f.includes('schedule')) return 'INSURANCE';
-  if (f.includes('case') && f.includes('study')) return 'CASE_STUDY';
   return 'OTHER';
 }
 
@@ -50,9 +59,12 @@ function topNWords(tokens, n = 30) {
 }
 
 function loadExtractIndex(repoRoot) {
-  const extractDir = path.join(repoRoot, 'tender-extract-bid-library');
-  const indexPath = path.join(extractDir, '_index.json');
-  if (!fs.existsSync(indexPath)) return new Map();
+  const extractDirs = [
+    path.join(repoRoot, 'tender-extract-evidence'),
+    path.join(repoRoot, 'tender-extract-bid-library')
+  ];
+  const indexPath = extractDirs.map((d) => path.join(d, '_index.json')).find((p) => fs.existsSync(p));
+  if (!indexPath) return new Map();
   try {
     const arr = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
     const m = new Map();
@@ -67,11 +79,24 @@ function loadExtractIndex(repoRoot) {
 
 function main() {
   const repoRoot = process.cwd();
-  const bidLibDir = path.join(repoRoot, 'Tender Learning/Dacha Learning Documents');
   const outPath = path.join(repoRoot, 'ml-data/bid_library_index.json');
 
   const extractMap = loadExtractIndex(repoRoot);
-  const files = listFiles(bidLibDir).filter((p) => /\.(pdf|docx|doc|md)$/i.test(p));
+  const sources = [
+    path.join(repoRoot, 'Tender Learning/Dacha Learning Documents'),
+    path.join(repoRoot, 'Tender Learning/NHS Dorset'),
+    path.join(repoRoot, 'Tender Learning/PureGym Case study.pdf'),
+    path.join(repoRoot, 'Tender Learning/ASC Case Study.pdf')
+  ];
+
+  const collected = [];
+  for (const src of sources) {
+    if (!fs.existsSync(src)) continue;
+    if (fs.statSync(src).isDirectory()) collected.push(...listFiles(src));
+    else collected.push(src);
+  }
+
+  const files = collected.filter((p) => /\.(pdf|docx|doc|md|xlsx|xls)$/i.test(p));
 
   const docs = files.map((p) => {
     const rel = path.relative(repoRoot, p).replace(/\\/g, '/');
@@ -95,7 +120,17 @@ function main() {
       ISMS: ['information', 'security', 'isms', 'classification', 'policy', 'audit'],
       SSAIB_NSI: ['ssaib', 'nsi', 'certification', 'security', 'install', 'maintenance'],
       INSURANCE: ['insurance', 'liability', 'indemnity', 'employers', 'public', 'professional', 'cyber'],
-      HS_POLICY: ['health', 'safety', 'policy', 'rams', 'risk', 'method', 'statement']
+      HS_POLICY: ['health', 'safety', 'policy', 'rams', 'risk', 'method', 'statement'],
+      RAMS: ['rams', 'risk', 'assessment', 'method', 'statement', 'permit', 'toolbox'],
+      METHOD_STATEMENT: ['method', 'statement', 'works', 'sequence', 'controls', 'supervision'],
+      RISK_ASSESSMENT: ['risk', 'assessment', 'hazard', 'controls', 'severity', 'likelihood'],
+      CASE_STUDY: ['case', 'study', 'client', 'scope', 'outcomes', 'constraints'],
+      AS_FITTED: ['as-fitted', 'as', 'fitted', 'drawings', 'cable', 'routing', 'cabinets'],
+      ASSET_REGISTER: ['asset', 'register', 'tag', 'location', 'serial', 'schedule'],
+      IP_SCHEDULE: ['ip', 'schedule', 'addressing', 'vlans', 'subnet', 'ports'],
+      PATCH_SCHEDULE: ['patch', 'schedule', 'ports', 'cabinet', 'label', 'as-built'],
+      O_AND_M: ['operation', 'maintenance', 'o&m', 'handover', 'manuals', 'procedures'],
+      COMMERCIAL_RULES: ['commercial', 'assumptions', 'training', 'commissioning', 'labour', 'travel', 'accommodation']
     };
     const hinted = typeHints[docType] || [];
 

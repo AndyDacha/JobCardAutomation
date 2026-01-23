@@ -4,18 +4,27 @@ import fs from 'fs';
 
 function main() {
   const repoRoot = process.cwd();
-  const bidLibDir = path.join(repoRoot, 'Tender Learning/Dacha Learning Documents');
-  const outDir = path.join(repoRoot, 'tender-extract-bid-library');
+  const outDir = path.join(repoRoot, 'tender-extract-evidence');
+  const extractor = path.join(repoRoot, 'scripts/tenders/extract-text.js');
 
-  if (!fs.existsSync(bidLibDir)) {
-    console.error(`Missing bid library dir: ${bidLibDir}`);
-    process.exit(1);
-  }
+  const sources = [
+    path.join(repoRoot, 'Tender Learning/Dacha Learning Documents'),
+    path.join(repoRoot, 'Tender Learning/NHS Dorset'),
+    path.join(repoRoot, 'Tender Learning/PureGym Case study.pdf'),
+    path.join(repoRoot, 'Tender Learning/ASC Case Study.pdf')
+  ];
 
   fs.mkdirSync(outDir, { recursive: true });
-  const extractor = path.join(repoRoot, 'scripts/tenders/extract-text.js');
-  execFileSync(process.execPath, [extractor, bidLibDir, outDir], { stdio: 'inherit' });
-  console.log(`Extracted bid library text -> ${outDir}`);
+
+  for (const src of sources) {
+    if (!fs.existsSync(src)) {
+      console.warn(`Skipping missing evidence source: ${src}`);
+      continue;
+    }
+    execFileSync(process.execPath, [extractor, src, outDir], { stdio: 'inherit' });
+  }
+
+  console.log(`Extracted evidence text -> ${outDir}`);
 }
 
 main();
