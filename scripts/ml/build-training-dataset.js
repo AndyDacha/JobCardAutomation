@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { redactText } from './redaction.js';
 
 function listFilesRecursive(dir) {
   const out = [];
@@ -48,6 +49,63 @@ function extractRowsFromLineByLineMd(md) {
   return rows;
 }
 
+function extractRowsFromLineByLineList(md) {
+  // UoS format uses bullet blocks like:
+  // - **Requirement:** ...
+  // - **State:** ...
+  // - **Answer:** ...
+  // - **Evidence:** ...
+  const lines = String(md || '').split('\n');
+  const out = [];
+  let cur = null;
+
+  const flush = () => {
+    if (!cur) return;
+    if (cur.clause || cur.requirement) out.push(cur);
+    cur = null;
+  };
+
+  for (const ln of lines) {
+    const mReq = ln.match(/^\s*-\s+\*\*Requirement(?:\s*\(.*?\))?\:\*\*\s*(.*)\s*$/i);
+    const mState = ln.match(/^\s*-\s+\*\*State\:\*\*\s*(.*)\s*$/i);
+    const mAnswer = ln.match(/^\s*-\s+\*\*Answer(?:\s*\(.*?\))?\:\*\*\s*(.*)\s*$/i);
+    const mEvidence = ln.match(/^\s*-\s+\*\*Evidence\:\*\*\s*(.*)\s*$/i);
+    const mHeading = ln.match(/^\s*###\s+(.*)\s*$/);
+
+    if (mHeading) {
+      // Start a new logical section; treat as "clause" when it looks like B1/B2 etc.
+      flush();
+      cur = { clause: mHeading[1].trim(), requirement: '', state: '', answer: '', evidence: '' };
+      continue;
+    }
+
+    if (mReq) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.requirement = (cur.requirement ? cur.requirement + ' ' : '') + mReq[1].trim();
+      continue;
+    }
+    if (mState) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.state = mState[1].trim();
+      continue;
+    }
+    if (mAnswer) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.answer = (cur.answer ? cur.answer + ' ' : '') + mAnswer[1].trim();
+      continue;
+    }
+    if (mEvidence) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.evidence = (cur.evidence ? cur.evidence + ' ' : '') + mEvidence[1].trim();
+      continue;
+    }
+  }
+  flush();
+
+  // Filter to entries that actually have a requirement line
+  return out.filter((r) => r.requirement);
+}
+
 function normalizeState(s) {
   const v = String(s || '').toUpperCase();
   if (v.includes('ANSWERED') || v.includes('PASS') || v.includes('✅')) return 'ANSWERED';
@@ -71,28 +129,43 @@ function main() {
     const md = readTextMaybe(p);
     const tenderId = guessTenderIdFromPath(p);
     const tableRows = extractRowsFromLineByLineMd(md);
+    if (tableRows.length) {
+      for (const cols of tableRows) {
+        const clauseRef = cols[0] || '';
+        const req = cols[1] || '';
+        const state = normalizeState(cols[2] || '');
+        const answer = cols[3] || '';
+        const evidence = cols[4] || '';
+        if (!clauseRef || !req) continue;
 
-    // We support both ITT and RFP variants.
-    // Expected columns:
-    // - Tender 22: | clause | requirement | state | specific answer | evidence |
-    // - Tender 23: | clause | requirement | state | specific answer | evidence |
-    // - UoS: list-based not table-driven (skip for now)
-    for (const cols of tableRows) {
-      const clauseRef = cols[0] || '';
-      const req = cols[1] || '';
-      const state = normalizeState(cols[2] || '');
-      const answer = cols[3] || '';
-      const evidence = cols[4] || '';
-      if (!clauseRef || !req) continue;
+        dataset.push({
+          tender_id: tenderId,
+          source_path: path.relative(repoRoot, p),
+          clause_ref: redactText(clauseRef),
+          requirement_text: redactText(req),
+          answer_state: state,
+          answer_text: redactText(answer),
+          evidence_refs: evidence ? [redactText(evidence)] : [],
+          supporting_docs: [],
+          tags: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+      continue;
+    }
 
+    // UoS-style list blocks
+    const listRows = extractRowsFromLineByLineList(md);
+    for (const r of listRows) {
       dataset.push({
         tender_id: tenderId,
         source_path: path.relative(repoRoot, p),
-        clause_ref: clauseRef,
-        requirement_text: req,
-        answer_state: state,
-        answer_text: answer,
-        evidence_refs: evidence ? [evidence] : [],
+        clause_ref: redactText(r.clause || ''),
+        requirement_text: redactText(r.requirement),
+        answer_state: normalizeState(r.state),
+        answer_text: redactText(r.answer),
+        evidence_refs: r.evidence ? [redactText(r.evidence)] : [],
         supporting_docs: [],
         tags: [],
         created_at: new Date().toISOString(),
@@ -101,7 +174,7 @@ function main() {
     }
   }
 
-  const outPath = path.join(repoRoot, 'ml-data/tender_dataset.jsonl');
+  const outPath = path.join(repoRoot, 'ml-data/tender_dataset_redacted.jsonl');
   writeJsonl(outPath, dataset);
   console.log(`Wrote ${dataset.length} rows to ${outPath}`);
 }

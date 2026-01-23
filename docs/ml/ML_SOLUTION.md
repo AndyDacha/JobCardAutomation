@@ -92,6 +92,8 @@ Before doing any fine-tuning:
 - Build evidence index + retrieval.
 - Add evaluator to produce a “Bid Manager Check” with risk flags.
 
+**Default training dataset output (redacted):** `ml-data/tender_dataset_redacted.jsonl`
+
 ### Phase 2: Human-in-the-loop workflow
 - Every generated clause response is reviewed by Bid Manager / Sales / Ops.
 - Store edits back into the dataset as “gold answers”.

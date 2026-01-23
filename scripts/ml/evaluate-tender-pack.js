@@ -24,6 +24,58 @@ function parseLineByLineTable(md) {
   return rows;
 }
 
+function parseLineByLineList(md) {
+  // UoS-style blocks:
+  // - **Requirement:** ...
+  // - **State:** ...
+  // - **Answer:** ...
+  // - **Evidence:** ...
+  const lines = String(md || '').split('\n');
+  const out = [];
+  let cur = null;
+  const flush = () => {
+    if (!cur) return;
+    if (cur.requirement) out.push(cur);
+    cur = null;
+  };
+
+  for (const ln of lines) {
+    const mReq = ln.match(/^\s*-\s+\*\*Requirement(?:\s*\(.*?\))?\:\*\*\s*(.*)\s*$/i);
+    const mState = ln.match(/^\s*-\s+\*\*State\:\*\*\s*(.*)\s*$/i);
+    const mAnswer = ln.match(/^\s*-\s+\*\*Answer(?:\s*\(.*?\))?\:\*\*\s*(.*)\s*$/i);
+    const mEvidence = ln.match(/^\s*-\s+\*\*Evidence\:\*\*\s*(.*)\s*$/i);
+    const mHeading = ln.match(/^\s*###\s+(.*)\s*$/);
+
+    if (mHeading) {
+      flush();
+      cur = { clause: mHeading[1].trim(), requirement: '', state: '', answer: '', evidence: '' };
+      continue;
+    }
+    if (mReq) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.requirement = (cur.requirement ? cur.requirement + ' ' : '') + mReq[1].trim();
+      continue;
+    }
+    if (mState) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.state = mState[1].trim();
+      continue;
+    }
+    if (mAnswer) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.answer = (cur.answer ? cur.answer + ' ' : '') + mAnswer[1].trim();
+      continue;
+    }
+    if (mEvidence) {
+      if (!cur) cur = { clause: '', requirement: '', state: '', answer: '', evidence: '' };
+      cur.evidence = (cur.evidence ? cur.evidence + ' ' : '') + mEvidence[1].trim();
+      continue;
+    }
+  }
+  flush();
+  return out;
+}
+
 function stateFromCell(s) {
   const v = String(s || '');
   if (v.includes('✅')) return 'ANSWERED';
@@ -70,15 +122,34 @@ function main() {
   }
 
   const lineByLinePath = candidates[0].path;
-  const rows = parseLineByLineTable(readText(lineByLinePath));
+  const md = readText(lineByLinePath);
+  const tableRows = parseLineByLineTable(md);
+  let rows = [];
+  if (tableRows.length) {
+    rows = tableRows.map((cols) => ({
+      clause: cols[0] || '',
+      req: cols[1] || '',
+      stateCell: cols[2] || '',
+      evidence: cols[4] || ''
+    }));
+  } else {
+    const listRows = parseLineByLineList(md);
+    rows = listRows.map((r) => ({
+      clause: r.clause || '',
+      req: r.requirement || '',
+      stateCell: r.state || '',
+      evidence: r.evidence || ''
+    }));
+  }
+ 
   const totals = { total: rows.length, answered: 0, clarification: 0, notApplicable: 0, evidenceMissing: 0 };
   const issues = [];
 
-  for (const cols of rows) {
-    const clause = cols[0] || '';
-    const req = cols[1] || '';
-    const stateCell = cols[2] || '';
-    const evidence = cols[4] || '';
+  for (const r of rows) {
+    const clause = r.clause || '';
+    const req = r.req || '';
+    const stateCell = r.stateCell || '';
+    const evidence = r.evidence || '';
     const st = stateFromCell(stateCell);
     if (st === 'ANSWERED') totals.answered += 1;
     else if (st === 'NOT_APPLICABLE') totals.notApplicable += 1;
