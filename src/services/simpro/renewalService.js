@@ -13,11 +13,44 @@ const axiosInstance = axios.create({
   timeout: 30000
 });
 
+// Small in-memory cache to avoid repeated customer lookups during runner bursts.
+const customerNameCache = new Map(); // customerId -> name
+
 function normalizeList(raw) {
   if (Array.isArray(raw)) return raw;
   if (Array.isArray(raw?.Items)) return raw.Items;
   if (Array.isArray(raw?.items)) return raw.items;
   return raw ? [raw] : [];
+}
+
+async function getCustomerNameById(customerId) {
+  const cid = Number(customerId);
+  if (!Number.isFinite(cid) || cid <= 0) return '';
+  if (customerNameCache.has(cid)) return customerNameCache.get(cid) || '';
+
+  // Simpro customer endpoints vary by tenant. We already use /customers/companies/{id} in jobCardService.
+  const urls = [
+    `/companies/${companyId}/customers/companies/${cid}`,
+    `/companies/${companyId}/customers/${cid}`
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await requestWithRetry('get', url, undefined, 2);
+      const c = res?.data || {};
+      const name = String(c?.Name || c?.CompanyName || c?.TradingName || '').trim();
+      if (name) {
+        customerNameCache.set(cid, name);
+        if (customerNameCache.size > 5000) customerNameCache.clear();
+        return name;
+      }
+    } catch {
+      // try next
+    }
+  }
+  customerNameCache.set(cid, '');
+  if (customerNameCache.size > 5000) customerNameCache.clear();
+  return '';
 }
 
 export function toDateOnlyString(d) {
@@ -227,6 +260,7 @@ export async function ensureMaintenanceConversionTask({
   jobNumber,
   siteName,
   customerName,
+  customerId = null,
   quoteId,
   assignedToId = 12
 }) {
@@ -245,7 +279,8 @@ export async function ensureMaintenanceConversionTask({
       `<p><strong>Details</strong><br/>` +
       `Job: <strong>#${String(jobNumber || jobId)}</strong><br/>` +
       (quoteId ? `Quote ID: ${escapeHtml(String(quoteId))}<br/>` : '') +
-      (customerName ? `Customer: ${escapeHtml(String(customerName))}<br/>` : '') +
+      // Resolve customer name if missing
+      (((customerName || '') ? String(customerName) : await getCustomerNameById(customerId)) ? `Customer: ${escapeHtml(String((customerName || '') ? customerName : await getCustomerNameById(customerId)))}<br/>` : '') +
       (siteName ? `Site: ${escapeHtml(String(siteName))}<br/>` : '') +
       `</p>` +
       `<p><strong>Action required</strong><br/>` +
@@ -305,6 +340,7 @@ export async function ensureCompletionDayTask({
   siteName,
   customerName,
   completedDateYYYYMMDD,
+  customerId = null,
   assignedToId = 12,
   maintenanceValue = 'TBC'
 }) {
@@ -322,9 +358,10 @@ export async function ensureCompletionDayTask({
   const r2 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -2)) : '';
   const r1 = renewalDue ? toDateOnlyString(addMonthsUtc(renewalDue, -1)) : '';
 
+  const resolvedCustomerName = customerName || (await getCustomerNameById(customerId)) || 'Customer';
   const vars = {
     'Job Number': jobNumber || jobId,
-    'Customer Name': customerName || 'Customer',
+    'Customer Name': resolvedCustomerName,
     'Site Name': siteName || '',
     'Job Completion Date': completedDateYYYYMMDD || '',
     'Renewal Date': renewalDueStr || '',
@@ -378,6 +415,7 @@ export async function ensureRenewalTask({
   jobNumber,
   siteName,
   customerName,
+  customerId = null,
   dueDateYYYYMMDD,
   monthsBefore,
   assignedToId,
@@ -394,8 +432,9 @@ export async function ensureRenewalTask({
   const already = existing.some((t) => String(t?.Subject || '').trim() === subject);
   if (already) return { created: false, subject };
 
+  const resolvedCustomerName = customerName || (await getCustomerNameById(customerId)) || 'Customer';
   const vars = {
-    'Customer Name': customerName || 'Customer',
+    'Customer Name': resolvedCustomerName,
     'Job Number': jobNumber || jobId,
     'Site Name': siteName || '',
     'Renewal Date': renewalDueYYYYMMDD || '',
@@ -456,6 +495,7 @@ export async function runRenewalRunner({
     const jobNumber = job?.JobNo || job?.JobNumber || jobId;
     const siteName = job?.Site?.Name || job?.SiteName || '';
     const customerName = job?.Customer?.Name || job?.CustomerName || '';
+    const customerId = job?.Customer?.ID || job?.Customer?.Id || job?.CustomerID || job?.CustomerId || null;
 
     for (const r of reminderDates) {
       const dueStr = toDateOnlyString(r.date);
@@ -503,6 +543,7 @@ export async function runRenewalRunner({
         jobNumber,
         siteName,
         customerName,
+        customerId,
         dueDateYYYYMMDD: dueStr,
         monthsBefore: r.monthsBefore,
         assignedToId,

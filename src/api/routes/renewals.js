@@ -118,6 +118,7 @@ router.post('/create-completion-task/:jobId', async (req, res) => {
 
     const siteName = raw?.Site?.Name || '';
     const customerName = raw?.Customer?.Name || '';
+    const customerId = raw?.Customer?.ID || raw?.Customer?.Id || raw?.CustomerID || raw?.CustomerId || null;
     const subject = `Job Completed – Maintenance Contract Activated & Renewal Alerts Scheduled - Job #${link?.jobNumber || jobId}`;
 
     if (dryRun) {
@@ -129,6 +130,7 @@ router.post('/create-completion-task/:jobId', async (req, res) => {
       jobNumber: link?.jobNumber || jobId,
       siteName,
       customerName,
+      customerId,
       completedDateYYYYMMDD: completedDate,
       assignedToId
     });

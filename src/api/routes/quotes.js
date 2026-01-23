@@ -300,12 +300,14 @@ async function processJobWebhookForMaintenanceTag({ webhookData, jobId }) {
       try {
         const assignedToId = Number(process.env.MAINTENANCE_TASK_ASSIGNEE_ID || 12);
         const siteName = link?.raw?.Site?.Name || '';
-        const customerName = link?.raw?.Customer?.Name || '';
+        const customerName = link?.raw?.Customer?.Name || link?.raw?.CustomerName || '';
+        const customerId = link?.raw?.Customer?.ID || link?.raw?.Customer?.Id || link?.raw?.CustomerID || link?.raw?.CustomerId || null;
         const convTask = await ensureMaintenanceConversionTask({
           jobId: String(jobId),
           jobNumber: link?.jobNumber || jobId,
           siteName,
           customerName,
+          customerId,
           quoteId: link?.quoteId,
           assignedToId
         });
@@ -374,12 +376,14 @@ async function processJobCompletionForMaintenanceTasks({ webhookData, jobId }) {
 
     const siteName = raw?.Site?.Name || raw?.SiteName || '';
     const customerName = raw?.Customer?.Name || raw?.CustomerName || '';
+    const customerId = raw?.Customer?.ID || raw?.Customer?.Id || raw?.CustomerID || raw?.CustomerId || null;
 
     const res = await ensureCompletionDayTask({
       jobId,
       jobNumber: link?.jobNumber || jobId,
       siteName,
       customerName,
+      customerId,
       completedDateYYYYMMDD,
       assignedToId
     });
