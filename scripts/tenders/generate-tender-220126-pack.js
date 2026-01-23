@@ -63,68 +63,70 @@ function listBidLibraryEvidence() {
 
 function buildComplianceMatrix220126(info, evidence) {
   // Clause refs are aligned to the section numbering in Tender Doc.docx (mock ITT).
+  // Enforcement rule: every clause row ends in one of:
+  // ✅ Answered / ⚠️ Requires clarification / ❌ Not applicable (with justification)
   const rows = [
     {
       clause: '2.1–2.3',
       req: 'Provide integrated CCTV, Access Control and Intruder solution compliant with relevant British Standards',
-      resp: 'YES – integrated CCTV/ACS/Intruder delivery across multiple sites; standards compliance confirmed.',
+      resp: 'We will deliver an integrated CCTV/ACS/Intruder solution with standards-led design, commissioning and documentation.',
       ev: 'tender-response-pack.md (Sections 3–5)',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '7',
       req: 'Commissioning & handover deliverables: SAT, training, as-fitted drawings, asset registers, config backups, O&M manuals',
-      resp: 'YES – commissioning, SAT, training, as-fitted/asset register/config backups/O&M manuals provided as deliverables.',
+      resp: 'Commissioning includes SAT, training, and full handover pack (as-fitted, asset register, backups, O&M).',
       ev: 'tender-response-pack.md (Section 3); mobilisation-plan-90-days.md',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '8',
       req: 'Maintenance & support: planned maintenance (min 2 visits p.a.) + reactive maintenance + emergency call-out',
-      resp: 'YES – planned maintenance (min 2 visits p.a.) + reactive + 24/7 availability.',
+      resp: 'Planned maintenance (min 2 visits p.a.) plus reactive and emergency call-out capability.',
       ev: 'tender-response-pack.md (Section 5)',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '9',
       req: 'Data protection & information security (UK GDPR, DPA 2018, ISO 27001 or equivalent, secure evidence handling, chain of custody)',
       resp: 'YES – UK GDPR/DPA controls, secure evidence handling and audit trails; InfoSec evidence referenced.',
       ev: 'tender-response-pack.md (Section 4); evidence-register.md',
-      status: evidence.find((x) => x.req.includes('ISO 27001'))?.file ? 'Provided' : 'Requires clarification'
+      status: evidence.find((x) => x.req.includes('ISO 27001'))?.file ? '✅ Answered' : '⚠️ Requires clarification'
     },
     {
       clause: '10',
       req: 'H&S and environmental controls (policy, RAMS, waste handling, carbon reduction)',
-      resp: 'YES – H&S policy and RAMS process; waste/WEEE and environmental controls supported.',
+      resp: 'H&S policy + RAMS process; environmental controls incl. waste/WEEE and carbon reduction initiatives.',
       ev: 'evidence-register.md; risk-register.md; social-value.md',
-      status: evidence.find((x) => x.req === 'H&S Policy')?.file ? 'Provided' : 'Requires clarification'
+      status: evidence.find((x) => x.req === 'H&S Policy')?.file ? '✅ Answered' : '⚠️ Requires clarification'
     },
     {
       clause: '11',
       req: 'Quality management + SSAIB/NSI certification (mandatory)',
       resp: 'YES – SSAIB/NSI certification referenced.',
       ev: 'evidence-register.md',
-      status: evidence.find((x) => x.req.includes('SSAIB'))?.file ? 'Provided' : 'Missing'
+      status: evidence.find((x) => x.req.includes('SSAIB'))?.file ? '✅ Answered' : '⚠️ Requires clarification'
     },
     {
       clause: '13–19',
       req: 'Tender submission requirements: completed response doc, pricing schedule, policies/certs, evidence of experience, minimum 3 case studies, conflicts declaration',
       resp: 'Partially provided – response, supporting artefacts, evidence register and example case studies included; pricing remains a template; conflicts declaration requires signed Trust form.',
       ev: 'tender-response-pack.md; pricing-schedule-sell-template.csv; evidence-register.md; case-studies.md',
-      status: 'Requires clarification'
+      status: '⚠️ Requires clarification'
     }
   ];
 
   const lines = [];
   lines.push('# Compliance Matrix (clause-referenced, scorable)');
   lines.push('');
-  lines.push('| ITT clause | Requirement (short) | Response (specific) | Evidence ref | Status |');
+  lines.push('| ITT clause | Requirement (short) | Response (specific) | Evidence ref | State |');
   lines.push('|---|---|---|---|---|');
   for (const r of rows) {
     lines.push(`| ${r.clause} | ${r.req} | ${r.resp} | ${r.ev} | **${r.status}** |`);
   }
   lines.push('');
-  lines.push('Status key: **Provided** / **Missing** / **Requires clarification**.');
+  lines.push('State key: **✅ Answered** / **⚠️ Requires clarification** / **❌ Not applicable (with justification)**.');
   lines.push('');
   return lines.join('\n');
 }

@@ -46,69 +46,71 @@ function buildComplianceMatrix230126(evidence) {
   const hasISO27001 = Boolean(evidence.find((x) => x.req.includes('ISO 27001'))?.file);
   const hasInsurance = Boolean(evidence.find((x) => x.req === 'Insurance')?.file);
 
+  // Enforcement rule: every clause row ends in one of:
+  // ✅ Answered / ⚠️ Requires clarification / ❌ Not applicable (with justification)
   const rows = [
     {
       clause: '2',
       req: 'Design & Build including surveys, removal/disposal, temp security, install, integration, commissioning, training, maintenance',
       resp: 'YES – included with explicit continuity strategy and phased delivery.',
       ev: 'tender-response-pack.md; rams.md; programme.md',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '4',
       req: 'Network constraints: VLAN segregation, no internet exposure, compliance with Authority cyber policy, explicit network assumptions',
       resp: 'YES – VLAN segregation and no internet exposure confirmed; assumptions logged.',
       ev: 'network-diagrams.md; assumptions-log.md',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '5',
       req: 'CCTV quantities/retention/analytics/evidential export; maintain coverage during replacement',
       resp: 'YES – site-based quantities per RFP categories; 45-day retention; continuity strategy.',
       ev: 'equipment-schedules.md; compliance-matrix.md',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '6',
       req: 'Access Control door schedule (critical; disqualification risk if missing)',
       resp: 'Door schedule template included; RFP does not include door-by-door data to complete it at tender stage.',
       ev: 'equipment-schedules.md (door schedule template); assumptions-log.md',
-      status: 'Requires clarification'
+      status: '⚠️ Requires clarification'
     },
     {
       clause: '7',
       req: 'Intruder: Grade 2/3 per site; dual-path; zoning/partitioning; integration with CCTV triggers',
       resp: 'YES – detection types, zoning/partitioning, dual-path and CCTV integration logic included.',
       ev: 'tender-response-pack.md (Section 7); equipment-schedules.md',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '8',
       req: 'Data protection & cyber: DPIA, encryption, 24h incident notification, right of audit',
       resp: 'YES – DPIA support, encryption approach, 24h notification and auditability confirmed.',
       ev: 'tender-response-pack.md (Section 4); assumptions-log.md; evidence-register.md',
-      status: hasISO27001 ? 'Provided' : 'Requires clarification'
+      status: hasISO27001 ? '✅ Answered' : '⚠️ Requires clarification'
     },
     {
       clause: '10',
       req: 'Pricing fixed; no post-award increases; breakdown by site and system',
       resp: 'Partially – pricing structure and templates provided; sell values require completion.',
       ev: 'pricing-schedule-sell-template.csv; pricing-methodology.md',
-      status: 'Requires clarification'
+      status: '⚠️ Requires clarification'
     },
     {
       clause: '13',
       req: 'Submission artefacts: compliance matrix, equipment schedules, network diagrams, RAMS, risk register, programme, assumptions/deviations logs, pricing schedules, social value',
       resp: 'YES – all artefacts included in PDF pack.',
       ev: 'Included documents list; individual files',
-      status: 'Provided'
+      status: '✅ Answered'
     },
     {
       clause: '13',
       req: 'Evidence attachments (certifications/insurance) confirmed included',
       resp: 'Evidence register references bid library; confirm attachments uploaded with submission.',
       ev: 'evidence-register.md',
-      status: hasSSAIB && hasInsurance ? 'Provided' : 'Requires clarification'
+      status: hasSSAIB && hasInsurance ? '✅ Answered' : '⚠️ Requires clarification'
     }
   ];
 
@@ -119,7 +121,7 @@ function buildComplianceMatrix230126(evidence) {
   lines.push('|---|---|---|---|---|');
   for (const r of rows) lines.push(`| ${r.clause} | ${r.req} | ${r.resp} | ${r.ev} | **${r.status}** |`);
   lines.push('');
-  lines.push('Status key: **Provided** / **Missing** / **Requires clarification**.');
+  lines.push('State key: **✅ Answered** / **⚠️ Requires clarification** / **❌ Not applicable (with justification)**.');
   lines.push('');
   return lines.join('\n');
 }
