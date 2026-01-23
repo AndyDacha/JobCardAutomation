@@ -6,6 +6,14 @@ import { execFileSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function readJsonMaybe(p) {
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 function readText(p) {
   return fs.readFileSync(p, 'utf8');
 }
@@ -22,6 +30,66 @@ function mk(title, lines) {
 function safePdfBasename(p) {
   const base = path.basename(p).replace(/\.(md|markdown)$/i, '');
   return base.replace(/[^a-z0-9._ -]/gi, '_').trim() || 'document';
+}
+
+function dateOnly(s) {
+  if (!s) return '';
+  const m = String(s).match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+  return m ? m[1] : '';
+}
+
+function isExpiredDdMmYyyy(ddmmyyyy) {
+  const m = String(ddmmyyyy || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return d.getTime() < today.getTime();
+}
+
+function loadExtractMap() {
+  const idxPath = path.join(process.cwd(), 'tender-extract-evidence/_index.json');
+  const arr = readJsonMaybe(idxPath);
+  const m = new Map();
+  for (const e of Array.isArray(arr) ? arr : []) {
+    if (!e?.file || !e?.out) continue;
+    const file = String(e.file).replace(/\\/g, '/');
+    const out = path.join(process.cwd(), String(e.out));
+    m.set(file, out);
+  }
+  return m;
+}
+
+function summarizeIsoCert(extractText) {
+  const t = String(extractText || '').replace(/\s+/g, ' ').trim();
+  const certNo = (t.match(/Certificate number:\s*([0-9]+)/i) || [])[1] || '';
+  const originalApproval = dateOnly((t.match(/Original Approval:\s*([0-9/]+)/i) || [])[1] || '');
+  const currentCert = dateOnly((t.match(/Current Certificate:\s*([0-9/]+)/i) || [])[1] || '');
+  const expiry = dateOnly((t.match(/Certificate Expiry:\s*([0-9/]+)/i) || [])[1] || '');
+  const iso = (t.match(/\bISO\s*(9001|14001|27001)\s*[: ]\s*(2015|2013)\b/i) || []);
+  const standard = iso.length ? `ISO ${iso[1]}:${iso[2]}` : '';
+  const issuer = (t.match(/On behalf of\s+([^ ]+[^ ]+)\s+CERTIFICATE/i) || [])[1] || 'QMS International Ltd';
+  const scope = (t.match(/scope of the Management System applies to the following:-\s*(.*?)\s+This Certificate/i) || [])[1] || '';
+  const expiredNote = expiry && isExpiredDdMmYyyy(expiry) ? ' (check/update)' : '';
+
+  return {
+    standard,
+    issuer,
+    certificateNumber: certNo,
+    originalApproval,
+    currentCertificate: currentCert,
+    expiry: expiry ? `${expiry}${expiredNote}` : '',
+    scope: scope || ''
+  };
+}
+
+function summarizeSsaibCert(extractText) {
+  const t = String(extractText || '').replace(/\s+/g, ' ').trim();
+  const reg = (t.match(/Registration Code:\s*([A-Z0-9]+)/i) || [])[1] || '';
+  const schedule = (t.match(/Schedule Ref\s*:\s*([0-9A-Za-z-]+)/i) || [])[1] || '';
+  const printDate = (t.match(/Print Date:\s*([0-9]{1,2}\s+[A-Za-z]+\s+[0-9]{4})/i) || [])[1] || '';
+  const issuer = 'SSAIB';
+  return { issuer, registrationCode: reg, scheduleRef: schedule, printDate };
 }
 
 function readBidLibraryIndex() {
@@ -215,6 +283,19 @@ function main() {
   );
   const info = extractInfo(file2);
   const evidence = listBidLibraryEvidence();
+  const extractMap = loadExtractMap();
+
+  const iso9001Path = evidence.find((e) => e.req === 'ISO 9001')?.file || '';
+  const iso14001Path = evidence.find((e) => e.req === 'ISO 14001')?.file || '';
+  const iso27001Path = evidence.find((e) => e.req.startsWith('ISO 27001'))?.file || '';
+
+  const iso9001Summary = iso9001Path && extractMap.get(iso9001Path) ? summarizeIsoCert(readText(extractMap.get(iso9001Path))) : null;
+  const iso14001Summary = iso14001Path && extractMap.get(iso14001Path) ? summarizeIsoCert(readText(extractMap.get(iso14001Path))) : null;
+  const iso27001Summary = iso27001Path && extractMap.get(iso27001Path) ? summarizeIsoCert(readText(extractMap.get(iso27001Path))) : null;
+
+  // SSAIB evidence is typically in the library even if UoS doesn’t ask for it; include a short summary for credibility.
+  const ssaibDoc = pickDocByType(readBidLibraryIndex().docs, 'SSAIB_NSI');
+  const ssaibSummary = ssaibDoc && extractMap.get(ssaibDoc) ? summarizeSsaibCert(readText(extractMap.get(ssaibDoc))) : null;
 
   writeText(
     path.join(outDir, 'tender-response-pack.md'),
@@ -284,6 +365,22 @@ function main() {
       '',
       '## 8. Contractual position',
       'The ITT requires unqualified acceptance of File 3 Conditions of Contract. Final submission must reflect this in File 5 declarations and Form of Offer signature.',
+      '',
+      '## 8.1 Accreditations & certifications (summary)',
+      'The following summaries are included for evaluator convenience; certificate PDFs are listed in the Evidence Register and should be attached to the portal submission where required.',
+      '',
+      iso9001Summary
+        ? `- **${iso9001Summary.standard}** (Issuer: ${iso9001Summary.issuer}; Cert No: ${iso9001Summary.certificateNumber || 'TBC'}; Expiry: ${iso9001Summary.expiry || 'TBC'}; Scope: ${iso9001Summary.scope || 'TBC'})`
+        : '- **ISO 9001:2015**: see Evidence Register for certificate.',
+      iso14001Summary
+        ? `- **${iso14001Summary.standard}** (Issuer: ${iso14001Summary.issuer}; Cert No: ${iso14001Summary.certificateNumber || 'TBC'}; Expiry: ${iso14001Summary.expiry || 'TBC'}; Scope: ${iso14001Summary.scope || 'TBC'})`
+        : '- **ISO 14001:2015**: see Evidence Register for certificate.',
+      iso27001Summary
+        ? `- **${iso27001Summary.standard}** (Issuer: ${iso27001Summary.issuer}; Cert No: ${iso27001Summary.certificateNumber || 'TBC'}; Expiry: ${iso27001Summary.expiry || 'TBC'}; Scope: ${iso27001Summary.scope || 'TBC'})`
+        : '- **ISO 27001 (or equivalent)**: see Evidence Register for certificate/policy.',
+      ssaibSummary
+        ? `- **SSAIB registration** (Issuer: ${ssaibSummary.issuer}; Registration Code: ${ssaibSummary.registrationCode || 'TBC'}; Schedule Ref: ${ssaibSummary.scheduleRef || 'TBC'}; Print date: ${ssaibSummary.printDate || 'TBC'})`
+        : null,
       '',
       '## 9. Pricing approach',
       'Pricing must be completed in File 4 (Commercial Response Workbook). This response pack does not include cost or trade pricing.',
@@ -608,7 +705,13 @@ function main() {
   writeText(path.join(outDir, 'evidence-register.md'), mk('Evidence Register (documents to attach)', [
     '| Requirement | Evidence | File (suggested name) |',
     '|---|---|---|',
-    ...evidence.map((e) => `| ${e.req} | ${e.file ? 'Available in bid library' : 'Attach evidence'} | ${e.file || '`TBC`'} |`),
+    ...evidence.map((e) => {
+      const f = e.file || '';
+      if (e.req === 'ISO 9001' && iso9001Summary) return `| ${e.req} | Available in bid library | ${f} (Cert No: ${iso9001Summary.certificateNumber || 'TBC'}; Expiry: ${iso9001Summary.expiry || 'TBC'}) |`;
+      if (e.req === 'ISO 14001' && iso14001Summary) return `| ${e.req} | Available in bid library | ${f} (Cert No: ${iso14001Summary.certificateNumber || 'TBC'}; Expiry: ${iso14001Summary.expiry || 'TBC'}) |`;
+      if (e.req.startsWith('ISO 27001') && iso27001Summary) return `| ${e.req} | Available in bid library | ${f} (Cert No: ${iso27001Summary.certificateNumber || 'TBC'}; Expiry: ${iso27001Summary.expiry || 'TBC'}) |`;
+      return `| ${e.req} | ${e.file ? 'Available in bid library' : 'Attach evidence'} | ${e.file || '`TBC`'} |`;
+    }),
     '| Environmental management evidence (if requested) | Policy/process statement | `TBC` |',
     '| Cyber insurance confirmation (£5m) | Certificate/schedule | `TBC` |'
   ]));
