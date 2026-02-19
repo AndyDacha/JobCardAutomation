@@ -63,7 +63,7 @@ async function processWebhookAsync(webhookData) {
     
     // Extract job ID and status ID from webhook (handle multiple Simpro webhook formats)
     // Simpro sends: reference.jobID and reference.statusID for job.status events
-    const jobId = webhookData?.reference?.jobID ||
+    const jobIdRaw = webhookData?.reference?.jobID ||
                   webhookData?.reference?.jobId ||
                   webhookData?.reference?.JobID ||
                   webhookData?.Job?.ID || 
@@ -71,7 +71,7 @@ async function processWebhookAsync(webhookData) {
                   webhookData?.JobId ||
                   webhookData?.job?.id;
     
-    const statusId = webhookData?.reference?.statusID ||
+    const statusIdRaw = webhookData?.reference?.statusID ||
                      webhookData?.reference?.statusId ||
                      webhookData?.reference?.StatusID ||
                      webhookData?.Status?.ID || 
@@ -81,10 +81,13 @@ async function processWebhookAsync(webhookData) {
                      webhookData?.Status?.Id ||
                      webhookData?.newStatus?.ID ||
                      webhookData?.newStatus?.Id;
+
+    const jobId = jobIdRaw !== undefined && jobIdRaw !== null && jobIdRaw !== '' ? Number(jobIdRaw) : null;
+    const statusId = statusIdRaw !== undefined && statusIdRaw !== null && statusIdRaw !== '' ? Number(statusIdRaw) : null;
     
     logger.info(`Extracted - Job ID: ${jobId}, Status ID: ${statusId}`);
     
-    if (!jobId) {
+    if (!jobId || !Number.isFinite(jobId)) {
       logger.warn('Webhook missing job ID. Full webhook data:', JSON.stringify(webhookData, null, 2));
       return;
     }
@@ -93,7 +96,7 @@ async function processWebhookAsync(webhookData) {
     const targetStatusId = 38;
     
     // Only process if status ID is exactly 38
-    if (!statusId) {
+    if (statusId === null || !Number.isFinite(statusId)) {
       logger.info(`Job ${jobId} webhook missing status ID, skipping (only process status 38)`);
       return;
     }

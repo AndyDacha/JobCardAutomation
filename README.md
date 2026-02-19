@@ -61,3 +61,10 @@ For quote review automation (if enabled), configure a Simpro webhook for quote e
 npm install
 npm run dev
 ```
+
+## Railway / Nixpacks (Puppeteer/Chromium)
+
+This service uses Puppeteer to generate PDFs. On Railway (especially Nixpacks builds) Chromium can fail to launch unless the container has the required system libraries.
+
+- A `nixpacks.toml` is included to install the required packages (e.g. `libnspr4`, `libnss3`, `expat`, GTK libs, fonts).
+- If you still see `Failed to launch the browser process!`, confirm you are not setting `PUPPETEER_SKIP_DOWNLOAD` / `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` in Railway.

@@ -7,6 +7,68 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function resolvePuppeteerExecutablePath() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.CHROME_BIN,
+    process.env.CHROMIUM_BIN,
+    process.env.CHROMIUM_PATH,
+    // Puppeteer-managed Chrome for Testing (if downloaded)
+    typeof puppeteer.executablePath === 'function' ? puppeteer.executablePath() : null
+  ].filter(Boolean);
+
+  for (const c of candidates) {
+    try {
+      if (typeof c === 'string' && c.trim() && fs.existsSync(c)) return c;
+    } catch {
+      // ignore
+    }
+  }
+
+  // Return first candidate even if it doesn't exist so we can log it
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
+async function launchBrowserForPdf() {
+  const executablePath = resolvePuppeteerExecutablePath();
+
+  const launchOptions = {
+    // Puppeteer v22 supports "new" headless, which is more reliable across builds
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--no-zygote'
+    ]
+  };
+
+  if (executablePath) {
+    launchOptions.executablePath = executablePath;
+  }
+
+  try {
+    return await puppeteer.launch(launchOptions);
+  } catch (e) {
+    logger.error('Puppeteer failed to launch browser (PDF generation).', {
+      executablePathCandidate: executablePath,
+      platform: process.platform,
+      arch: process.arch,
+      node: process.version,
+      puppeteer: puppeteer?.version?.() || null,
+      env: {
+        PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+        CHROME_BIN: process.env.CHROME_BIN || null,
+        CHROMIUM_BIN: process.env.CHROMIUM_BIN || null,
+        CHROMIUM_PATH: process.env.CHROMIUM_PATH || null,
+        PUPPETEER_SKIP_DOWNLOAD: process.env.PUPPETEER_SKIP_DOWNLOAD || null,
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD || null
+      }
+    }, e);
+    throw e;
+  }
+}
+
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
   return String(text)
@@ -624,10 +686,7 @@ export async function generatePDFv2(jobCardData, photos = []) {
     jobCardData.photos = Array.isArray(photos) ? photos : [];
     const html = generateHTMLv2(jobCardData);
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const browser = await launchBrowserForPdf();
     const page = await browser.newPage();
     page.setDefaultTimeout(60000);
     await page.setContent(html, { waitUntil: 'load' });

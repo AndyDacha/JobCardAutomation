@@ -16,18 +16,38 @@ if (!fs.existsSync(logDir)) {
 
 // Helper to write to both console and file
 const writeLog = (level, prefix, message, ...args) => {
-  const logLine = `${prefix} ${message}${args.length > 0 ? ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') : ''}\n`;
+  const normalizeArg = (a) => {
+    if (a instanceof Error) {
+      return { name: a.name, message: a.message, stack: a.stack };
+    }
+    return a;
+  };
+
+  const safeStringify = (obj) => {
+    try {
+      return JSON.stringify(obj, (_k, v) => (v instanceof Error ? { name: v.name, message: v.message, stack: v.stack } : v));
+    } catch {
+      try {
+        return String(obj);
+      } catch {
+        return '[Unserializable]';
+      }
+    }
+  };
+
+  const normalizedArgs = args.map(normalizeArg);
+  const logLine = `${prefix} ${message}${normalizedArgs.length > 0 ? ' ' + normalizedArgs.map(a => typeof a === 'object' ? safeStringify(a) : a).join(' ') : ''}\n`;
   
   // Write to console
   switch (level) {
     case 'error':
-      console.error(prefix, message, ...args);
+      console.error(prefix, message, ...normalizedArgs);
       break;
     case 'warn':
-      console.warn(prefix, message, ...args);
+      console.warn(prefix, message, ...normalizedArgs);
       break;
     default:
-      console.log(prefix, message, ...args);
+      console.log(prefix, message, ...normalizedArgs);
   }
   
   // Write to file (async, don't block)
